@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic CSS Grid Layout</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="main-container">
+        <!-- Side Panel -->
+        <div class="side-panel">
+            <h3>Image Upload</h3>
+            <div class="upload-section">
+                <input type="file" id="imageUpload" accept="image/*" style="display: none;">
+                <button class="upload-btn" onclick="document.getElementById('imageUpload').click()">
+                    Choose Image
+                </button>
+                <div class="upload-info">
+                    <p>Upload an image to fill all grid cells</p>
+                </div>
+            </div>
+            
+            <div class="controls-section">
+                <h4>Controls</h4>
+                <button class="control-btn" id="clearAllBtn">Clear All Images</button>
+                
+                <div class="grid-controls">
+                    <h4>Grid Structure</h4>
+                    <div class="grid-control-row">
+                        <label>Columns:</label>
+                        <button class="grid-btn" id="removeColumnBtn">-</button>
+                        <span id="columnCount">3</span>
+                        <button class="grid-btn" id="addColumnBtn">+</button>
+                    </div>
+                    <div class="grid-control-row">
+                        <label>Rows:</label>
+                        <button class="grid-btn" id="removeRowBtn">-</button>
+                        <span id="rowCount">3</span>
+                        <button class="grid-btn" id="addRowBtn">+</button>
+                    </div>
+                </div>
+                
+                <div class="animation-controls">
+                    <h4>Animation</h4>
+                    <div class="animation-control-row">
+                        <label for="animationToggle">Animate Grid:</label>
+                        <input type="checkbox" id="animationToggle" class="toggle-switch">
+                    </div>
+                    <div class="animation-control-row">
+                        <label for="frequencySlider">Frequency:</label>
+                        <input type="range" id="frequencySlider" min="0.1" max="2" step="0.1" value="0.5" class="control-slider">
+                        <span id="frequencyValue">0.5</span>
+                    </div>
+                    <div class="animation-control-row">
+                        <label for="amplitudeSlider">Amplitude:</label>
+                        <input type="range" id="amplitudeSlider" min="0.1" max="1" step="0.1" value="0.3" class="control-slider">
+                        <span id="amplitudeValue">0.3</span>
+                    </div>
+                </div>
+                
+                <label for="imageFitMode" class="dropdown-label">Image Fit Mode:</label>
+                <select id="imageFitMode" class="dropdown-select">
+                    <option value="fill">Stretch to Fill Cell</option>
+                    <option value="contain">Fit Within Cell</option>
+                    <option value="cover">Fill Cell Completely</option>
+                    <option value="debug-corners">Debug: 4 Corners</option>
+                </select>
+            </div>
+        </div>
+        
+        <!-- Grid Container -->
+        <div class="grid-container" id="gridContainer">
+            <div class="grid-item" data-cell="1">
+                <div class="cell-content">
+                    <div class="image-wrapper">
+                        <!-- Image will be inserted here -->
+                    </div>
+                    <div class="cell-label">1</div>
+                </div>
+            </div>
+            <div class="grid-item" data-cell="2">
+                <div class="cell-content">
+                    <div class="image-wrapper">
+                        <!-- Image will be inserted here -->
+                    </div>
+                    <div class="cell-label">2</div>
+                </div>
+            </div>
+            <div class="grid-item" data-cell="3">
+                <div class="cell-content">
+                    <div class="image-wrapper">
+                        <!-- Image will be inserted here -->
+                    </div>
+                    <div class="cell-label">3</div>
+                </div>
+            </div>
+            <div class="grid-item" data-cell="4">
+                <div class="cell-content">
+                    <div class="image-wrapper">
+                        <!-- Image will be inserted here -->
+                    </div>
+                    <div class="cell-label">4</div>
+                </div>
+            </div>
+            <div class="grid-item" data-cell="5">
+                <div class="cell-content">
+                    <div class="image-wrapper">
+                        <!-- Image will be inserted here -->
+                    </div>
+                    <div class="cell-label">5</div>
+                </div>
+            </div>
+            <div class="grid-item" data-cell="6">
+                <div class="cell-content">
+                    <div class="image-wrapper">
+                        <!-- Image will be inserted here -->
+                    </div>
+                    <div class="cell-label">6</div>
+                </div>
+            </div>
+            <div class="grid-item" data-cell="7">
+                <div class="cell-content">
+                    <div class="image-wrapper">
+                        <!-- Image will be inserted here -->
+                    </div>
+                    <div class="cell-label">7</div>
+                </div>
+            </div>
+            <div class="grid-item" data-cell="8">
+                <div class="cell-content">
+                    <div class="image-wrapper">
+                        <!-- Image will be inserted here -->
+                    </div>
+                    <div class="cell-label">8</div>
+                </div>
+            </div>
+            <div class="grid-item" data-cell="9">
+                <div class="cell-content">
+                    <div class="image-wrapper">
+                        <!-- Image will be inserted here -->
+                    </div>
+                    <div class="cell-label">9</div>
+                </div>
+            </div>
+            
+            <!-- Vertical Splitters (for column resizing) -->
+            <div class="splitter vertical" data-index="0"></div>
+            <div class="splitter vertical" data-index="1"></div>
+            
+            <!-- Horizontal Splitters (for row resizing) -->
+            <div class="splitter horizontal" data-index="0"></div>
+            <div class="splitter horizontal" data-index="1"></div>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html> 
