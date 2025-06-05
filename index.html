@@ -48,15 +48,15 @@
                         <h4>Grid Structure</h4>
                         <div class="grid-control-row">
                             <label>Columns:</label>
-                            <button class="grid-btn" id="removeColumnBtn">-</button>
+                            <button class="grid-btn" id="removeColumnBtn" onclick="window.imageGridManager.removeColumn()">-</button>
                             <span id="columnCount">3</span>
-                            <button class="grid-btn" id="addColumnBtn">+</button>
+                            <button class="grid-btn" id="addColumnBtn" onclick="window.imageGridManager.addColumn()">+</button>
                         </div>
                         <div class="grid-control-row">
                             <label>Rows:</label>
-                            <button class="grid-btn" id="removeRowBtn">-</button>
+                            <button class="grid-btn" id="removeRowBtn" onclick="window.imageGridManager.removeRow()">-</button>
                             <span id="rowCount">3</span>
-                            <button class="grid-btn" id="addRowBtn">+</button>
+                            <button class="grid-btn" id="addRowBtn" onclick="window.imageGridManager.addRow()">+</button>
                         </div>
                         <div class="grid-control-row">
                             <label for="showSplitters">Show Dividers:</label>

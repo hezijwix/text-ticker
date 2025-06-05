@@ -611,10 +611,6 @@ class ImageGridManager extends BaseGridManager {
     setupGridControls() {
         const clearAllBtn = document.getElementById('clearAllBtn');
         const imageFitModeSelect = document.getElementById('imageFitMode');
-        const addColumnBtn = document.getElementById('addColumnBtn');
-        const removeColumnBtn = document.getElementById('removeColumnBtn');
-        const addRowBtn = document.getElementById('addRowBtn');
-        const removeRowBtn = document.getElementById('removeRowBtn');
         const showSplittersCheckbox = document.getElementById('showSplitters');
         
         clearAllBtn.addEventListener('click', () => {
@@ -623,22 +619,6 @@ class ImageGridManager extends BaseGridManager {
         
         imageFitModeSelect.addEventListener('change', (e) => {
             this.setImageFitMode(e.target.value);
-        });
-        
-        addColumnBtn.addEventListener('click', () => {
-            this.addColumn();
-        });
-        
-        removeColumnBtn.addEventListener('click', () => {
-            this.removeColumn();
-        });
-        
-        addRowBtn.addEventListener('click', () => {
-            this.addRow();
-        });
-        
-        removeRowBtn.addEventListener('click', () => {
-            this.removeRow();
         });
         
         showSplittersCheckbox.addEventListener('change', (e) => {
@@ -1069,5 +1049,6 @@ class ImageGridManager extends BaseGridManager {
 // Initialize image inputs when DOM loads
 document.addEventListener('DOMContentLoaded', () => {
     const imageGridManager = new ImageGridManager();
+    window.imageGridManager = imageGridManager; // Make globally available for onclick
     window.tabManager.registerTab('image-inputs', imageGridManager);
 }); 
