@@ -17,6 +17,7 @@ class ImageGridManager extends BaseGridManager {
         this.setupCanvasSizeControls();
         this.setupAnimationControls();
         this.setupExportControls();
+        this.setupHelpModal();
     }
     
     onActivate() {
@@ -141,21 +142,30 @@ class ImageGridManager extends BaseGridManager {
         const imageWrappers = document.querySelectorAll('#gridContainer .image-wrapper');
         const cellLabels = document.querySelectorAll('#gridContainer .cell-label');
         
+        // Remove all images from image wrappers
         imageWrappers.forEach(wrapper => {
             const img = wrapper.querySelector('img');
             if (img) {
                 img.remove();
             }
+            // Also clear any debug elements or special styling
+            this.clearDebugElements(wrapper);
+            wrapper.classList.remove('fit-contain', 'fit-cover', 'debug-corners');
         });
         
+        // Show all cell labels (numbered grid)
         cellLabels.forEach(label => {
             label.classList.remove('hidden');
         });
         
+        // Clear any background image styling
+        this.clearImageBackground();
+        
+        // Reset state
         this.currentImageDataUrl = null;
         this.isUsingDefaultImage = false;
         
-        console.log('All images cleared');
+        console.log('All images cleared - returned to empty grid');
     }
     
     setImageFitMode(mode) {
@@ -812,6 +822,27 @@ class ImageGridManager extends BaseGridManager {
         });
     }
     
+    setupHelpModal() {
+        const helpModal = document.getElementById('helpModal');
+        
+        // Close modal when clicking outside the content
+        helpModal.addEventListener('click', (e) => {
+            if (e.target === helpModal) {
+                this.closeHelp();
+            }
+        });
+        
+        // Close modal with Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const helpModal = document.getElementById('helpModal');
+                if (helpModal.classList.contains('show')) {
+                    this.closeHelp();
+                }
+            }
+        });
+    }
+    
     promptAndStartRecording() {
         if (this.isRecording) {
             console.log('Already recording');
@@ -1043,6 +1074,19 @@ class ImageGridManager extends BaseGridManager {
             console.error('Error saving recording:', error);
             alert('Error saving recording. Please try again.');
         }
+    }
+    
+    // Help Modal Functions
+    showHelp() {
+        const helpModal = document.getElementById('helpModal');
+        helpModal.classList.add('show');
+        document.body.style.overflow = 'hidden'; // Prevent background scrolling
+    }
+    
+    closeHelp() {
+        const helpModal = document.getElementById('helpModal');
+        helpModal.classList.remove('show');
+        document.body.style.overflow = ''; // Restore scrolling
     }
 }
 

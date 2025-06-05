@@ -154,6 +154,46 @@ body {
     flex-shrink: 0;
 }
 
+/* Panel Header with Help Button */
+.panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.panel-header h3 {
+    margin: 0;
+    color: var(--text-color-bright);
+    font-weight: 400;
+    font-size: 13px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    line-height: 24px; /* Match help button height for perfect alignment */
+}
+
+.help-btn {
+    width: 24px;
+    height: 24px;
+    background-color: var(--button-subtle);
+    color: var(--button-subtle-text);
+    border: 1px solid var(--button-subtle-border);
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 400;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+}
+
+.help-btn:hover {
+    background-color: var(--button-subtle-hover);
+    border-color: #333;
+}
+
 .side-panel h3, .side-panel h4 {
     margin-bottom: 16px;
     color: var(--text-color-bright);
@@ -161,6 +201,11 @@ body {
     font-size: 13px;
     letter-spacing: 0.05em;
     text-transform: uppercase;
+}
+
+/* Override margin for h3 inside panel-header */
+.panel-header h3 {
+    margin-bottom: 0;
 }
 
 .upload-section {
@@ -664,4 +709,104 @@ body.dragging .splitter.dragging {
     font-weight: 400;
     font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
     flex-shrink: 0;
+}
+
+/* Help Modal Styles */
+.help-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+}
+
+.help-modal.show {
+    display: flex;
+}
+
+.help-modal-content {
+    background-color: var(--side-panel-bg);
+    border: 1px solid var(--side-panel-border);
+    border-radius: 4px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.help-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.help-modal-header h3 {
+    margin: 0;
+    color: var(--text-color-bright);
+    font-size: 16px;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+}
+
+.help-close-btn {
+    width: 28px;
+    height: 28px;
+    background-color: var(--button-subtle);
+    color: var(--button-subtle-text);
+    border: 1px solid var(--button-subtle-border);
+    border-radius: 2px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 300;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+.help-close-btn:hover {
+    background-color: var(--button-subtle-hover);
+    border-color: #333;
+}
+
+.help-modal-body {
+    padding: 20px 24px;
+}
+
+.help-section {
+    margin-bottom: 24px;
+}
+
+.help-section:last-child {
+    margin-bottom: 0;
+}
+
+.help-section h4 {
+    margin: 0 0 8px 0;
+    color: var(--text-color-bright);
+    font-size: 13px;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+}
+
+.help-section p {
+    margin: 0;
+    color: var(--text-color);
+    font-size: 12px;
+    line-height: 1.5;
+    letter-spacing: 0.01em;
+}
+
+.help-section p strong {
+    color: var(--text-color-bright);
+    font-weight: 400;
 } 

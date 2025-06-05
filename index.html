@@ -22,7 +22,10 @@
         <div class="main-container">
             <!-- Side Panel -->
             <div class="side-panel">
-                <h3>Image Upload</h3>
+                <div class="panel-header">
+                    <h3>Image Upload</h3>
+                    <button class="help-btn" id="helpBtn" onclick="window.imageGridManager.showHelp()">?</button>
+                </div>
                 <div class="upload-section">
                     <input type="file" id="imageUpload" accept="image/*" style="display: none;">
                     <button class="upload-btn" onclick="document.getElementById('imageUpload').click()">
@@ -42,7 +45,7 @@
                 
                 <div class="controls-section">
                     <h4>Controls</h4>
-                    <button class="control-btn" id="clearAllBtn">Clear All Images</button>
+                    <button class="control-btn" id="clearAllBtn">Clear Image</button>
                     
                     <div class="grid-controls">
                         <h4>Grid Structure</h4>
@@ -215,6 +218,50 @@
             <div class="content-area">
                 <!-- Content will be built step by step -->
                 <canvas id="webglCanvas" width="800" height="600"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Help Modal -->
+    <div class="help-modal" id="helpModal">
+        <div class="help-modal-content">
+            <div class="help-modal-header">
+                <h3>How to Use Grid Tool</h3>
+                <button class="help-close-btn" onclick="window.imageGridManager.closeHelp()">×</button>
+            </div>
+            <div class="help-modal-body">
+                <div class="help-section">
+                    <h4>📸 Upload Image</h4>
+                    <p>Click "Choose Image" to upload any image file. It will fill all grid cells.</p>
+                </div>
+                
+                <div class="help-section">
+                    <h4>📐 Adjust Grid</h4>
+                    <p>Use + and - buttons to add/remove columns and rows. Drag the gray lines to resize cells.</p>
+                </div>
+                
+                <div class="help-section">
+                    <h4>🎛️ Image Fit Modes</h4>
+                    <p><strong>Stretch:</strong> Image stretches to fill each cell<br>
+                    <strong>Fit:</strong> Image fits inside cell keeping proportions<br>
+                    <strong>Fill:</strong> Image fills cell completely<br>
+                    <strong>Corner Stretch:</strong> Advanced stretching for UI elements</p>
+                </div>
+                
+                <div class="help-section">
+                    <h4>✨ Animation</h4>
+                    <p>Turn on "Animate Grid" to make cells move smoothly. Adjust frequency (speed) and amplitude (movement amount).</p>
+                </div>
+                
+                <div class="help-section">
+                    <h4>📹 Export</h4>
+                    <p>Click "Record MP4" to save your grid as a high-quality video file.</p>
+                </div>
+                
+                <div class="help-section">
+                    <h4>🧹 Reset</h4>
+                    <p>Click "Clear Image" to remove all images and return to numbered grid.</p>
+                </div>
             </div>
         </div>
     </div>
