@@ -22,11 +22,12 @@ class ImageGridManager extends BaseGridManager {
     onActivate() {
         // Called when Image Inputs tab becomes active
         if (!this.initialized) {
-            this.setupImageUpload();
-            this.setupGridControls();
-            this.setupCanvasSizeControls();
-            this.setupAnimationControls();
-            this.setupExportControls();
+            // Event listeners are already set up in constructor, no need to duplicate
+            // this.setupImageUpload();
+            // this.setupGridControls();
+            // this.setupCanvasSizeControls();
+            // this.setupAnimationControls();
+            // this.setupExportControls();
             // this.setupDefaultContent(); // Removed - no default image
             this.initialized = true;
         }
