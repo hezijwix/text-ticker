@@ -860,15 +860,19 @@ class ImageGridManager extends BaseGridManager {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             
-            // Set canvas size to match grid container
+            // Set canvas size to match grid container but with higher resolution for better quality
             const gridRect = this.gridContainer.getBoundingClientRect();
-            canvas.width = gridRect.width;
-            canvas.height = gridRect.height;
+            const scaleFactor = 2; // 2x resolution for better quality
+            canvas.width = gridRect.width * scaleFactor;
+            canvas.height = gridRect.height * scaleFactor;
             
-            // Get the stream from canvas at 30fps
-            const stream = canvas.captureStream(30);
+            // Scale the context to maintain crisp rendering at higher resolution
+            ctx.scale(scaleFactor, scaleFactor);
             
-            // Try MP4 first, fallback to WebM
+            // Get the stream from canvas at 60fps for smoother playback
+            const stream = canvas.captureStream(60);
+            
+            // Try MP4 first, fallback to WebM with high quality settings
             let mimeType = 'video/webm;codecs=vp9';
             let fileExtension = 'webm';
             
@@ -880,14 +884,24 @@ class ImageGridManager extends BaseGridManager {
                 fileExtension = 'mp4';
             }
             
-            // Setup MediaRecorder
-            this.mediaRecorder = new MediaRecorder(stream, {
-                mimeType: mimeType
-            });
+            // Setup MediaRecorder with high quality settings
+            const recordingOptions = {
+                mimeType: mimeType,
+                videoBitsPerSecond: 8000000 // 8 Mbps for high quality
+            };
+            
+            // Check if videoBitsPerSecond is supported
+            if (!MediaRecorder.isTypeSupported(mimeType + ';bitrate=' + recordingOptions.videoBitsPerSecond)) {
+                // If bitrate setting isn't supported, use without it
+                delete recordingOptions.videoBitsPerSecond;
+            }
+            
+            this.mediaRecorder = new MediaRecorder(stream, recordingOptions);
             
             this.recordedChunks = [];
             this.isRecording = true;
             this.currentFileExtension = fileExtension;
+            this.recordingScaleFactor = scaleFactor;
             
             // Update button state
             const exportBtn = document.getElementById('exportVideoBtn');
@@ -912,7 +926,7 @@ class ImageGridManager extends BaseGridManager {
             // Start recording
             this.mediaRecorder.start();
             
-            // Start the canvas drawing loop
+            // Start the canvas drawing loop at 60fps
             this.startCanvasDrawing(canvas, ctx);
             
             // Stop recording after specified duration
@@ -923,7 +937,7 @@ class ImageGridManager extends BaseGridManager {
                 }
             }, duration * 1000);
             
-            console.log(`Started recording for ${duration} seconds in ${fileExtension.toUpperCase()} format`);
+            console.log(`Started HIGH QUALITY recording for ${duration} seconds in ${fileExtension.toUpperCase()} format at ${canvas.width}x${canvas.height} resolution`);
             
         } catch (error) {
             console.error('Error starting recording:', error);
@@ -939,7 +953,7 @@ class ImageGridManager extends BaseGridManager {
     startCanvasDrawing(canvas, ctx) {
         this.drawingInterval = setInterval(() => {
             this.captureGridToCanvas(canvas, ctx);
-        }, 1000 / 30); // 30 FPS
+        }, 1000 / 60); // 60 FPS for smoother video
     }
     
     stopCanvasDrawing() {
@@ -951,9 +965,12 @@ class ImageGridManager extends BaseGridManager {
     
     captureGridToCanvas(canvas, ctx) {
         try {
-            // Clear canvas
+            // Get grid dimensions (not scaled canvas dimensions)
+            const gridRect = this.gridContainer.getBoundingClientRect();
+            
+            // Clear canvas (use grid dimensions since context is scaled)
             ctx.fillStyle = getComputedStyle(this.gridContainer).backgroundColor || '#181818';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillRect(0, 0, gridRect.width, gridRect.height);
             
             // Use html2canvas alternative - draw each grid cell
             const gridItems = this.gridContainer.querySelectorAll('.grid-item');
@@ -970,29 +987,33 @@ class ImageGridManager extends BaseGridManager {
                 ctx.fillStyle = getComputedStyle(item).backgroundColor || '#161616';
                 ctx.fillRect(x, y, width, height);
                 
-                // Draw cell border
+                // Draw cell border with crisp lines
                 ctx.strokeStyle = getComputedStyle(item).borderColor || '#2a2a2a';
-                ctx.lineWidth = 1;
+                ctx.lineWidth = 1 / (this.recordingScaleFactor || 1); // Adjust line width for scale
                 ctx.strokeRect(x, y, width, height);
                 
-                // Draw image if present
+                // Draw image if present with high quality
                 const img = item.querySelector('img');
                 if (img && img.complete) {
+                    // Use smooth scaling for better image quality
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = 'high';
                     ctx.drawImage(img, x, y, width, height);
                 }
                 
-                // Draw cell label if visible
+                // Draw cell label if visible with crisp text
                 const label = item.querySelector('.cell-label');
                 if (label && !label.classList.contains('hidden')) {
                     ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
                     ctx.fillRect(x + 6, y + 6, 20, 12);
                     ctx.fillStyle = 'white';
-                    ctx.font = '9px monospace';
-                    ctx.fillText(label.textContent, x + 8, y + 15);
+                    ctx.font = `${9 / (this.recordingScaleFactor || 1)}px monospace`; // Scale font size
+                    ctx.textBaseline = 'top';
+                    ctx.fillText(label.textContent, x + 8, y + 8);
                 }
             });
             
-            // Draw splitters if visible
+            // Draw splitters if visible with crisp lines
             if (!this.gridContainer.classList.contains('hide-splitters')) {
                 const splitters = this.gridContainer.querySelectorAll('.splitter');
                 splitters.forEach(splitter => {
@@ -1003,7 +1024,7 @@ class ImageGridManager extends BaseGridManager {
                     const height = splitterRect.height;
                     
                     ctx.fillStyle = getComputedStyle(splitter).backgroundColor || 'transparent';
-                    if (ctx.fillStyle !== 'transparent') {
+                    if (ctx.fillStyle !== 'transparent' && ctx.fillStyle !== 'rgba(0, 0, 0, 0)') {
                         ctx.fillRect(x, y, width, height);
                     }
                 });
