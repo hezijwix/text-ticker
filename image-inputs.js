@@ -884,30 +884,61 @@ class ImageGridManager extends BaseGridManager {
             // Get the stream from canvas at 60fps for smoother playback
             const stream = canvas.captureStream(60);
             
-            // Try MP4 first, fallback to WebM with high quality settings
+            // Enhanced codec selection for better compatibility
             let mimeType = 'video/webm;codecs=vp9';
             let fileExtension = 'webm';
             
-            if (MediaRecorder.isTypeSupported('video/mp4;codecs=h264')) {
-                mimeType = 'video/mp4;codecs=h264';
-                fileExtension = 'mp4';
-            } else if (MediaRecorder.isTypeSupported('video/mp4')) {
-                mimeType = 'video/mp4';
-                fileExtension = 'mp4';
+            // Try more specific H.264 codec with baseline profile for maximum compatibility
+            const compatibleMP4Codecs = [
+                'video/mp4;codecs=avc1.42E01E', // H.264 Baseline Profile Level 3.0 - most compatible
+                'video/mp4;codecs=avc1.42001E', // H.264 Baseline Profile Level 1.5
+                'video/mp4;codecs=h264,aac',     // H.264 with AAC audio codec specified
+                'video/mp4;codecs=h264',         // Generic H.264
+                'video/mp4'                      // Generic MP4
+            ];
+            
+            // Test codecs in order of compatibility
+            for (const codec of compatibleMP4Codecs) {
+                if (MediaRecorder.isTypeSupported(codec)) {
+                    mimeType = codec;
+                    fileExtension = 'mp4';
+                    console.log(`Using MP4 codec: ${codec}`);
+                    break;
+                }
             }
             
-            // Setup MediaRecorder with high quality settings
+            // If no MP4 codec works, try WebM alternatives
+            if (fileExtension === 'webm') {
+                const webmCodecs = [
+                    'video/webm;codecs=vp9,opus',
+                    'video/webm;codecs=vp8,opus', 
+                    'video/webm;codecs=vp9',
+                    'video/webm;codecs=vp8',
+                    'video/webm'
+                ];
+                
+                for (const codec of webmCodecs) {
+                    if (MediaRecorder.isTypeSupported(codec)) {
+                        mimeType = codec;
+                        console.log(`Using WebM codec: ${codec}`);
+                        break;
+                    }
+                }
+            }
+            
+            // Setup MediaRecorder with compatibility-focused settings
             const recordingOptions = {
                 mimeType: mimeType,
-                videoBitsPerSecond: 8000000 // 8 Mbps for high quality
+                videoBitsPerSecond: 6000000 // Reduced to 6 Mbps for better compatibility
             };
             
-            // Check if videoBitsPerSecond is supported
-            if (!MediaRecorder.isTypeSupported(mimeType + ';bitrate=' + recordingOptions.videoBitsPerSecond)) {
-                // If bitrate setting isn't supported, use without it
+            // Only add bitrate if supported to avoid errors
+            if (!MediaRecorder.isTypeSupported(mimeType)) {
+                console.warn(`Codec ${mimeType} not supported, trying without bitrate`);
                 delete recordingOptions.videoBitsPerSecond;
+                recordingOptions.mimeType = fileExtension === 'mp4' ? 'video/mp4' : 'video/webm';
             }
-            
+
             this.mediaRecorder = new MediaRecorder(stream, recordingOptions);
             
             this.recordedChunks = [];
@@ -1049,9 +1080,16 @@ class ImageGridManager extends BaseGridManager {
     
     saveRecording() {
         try {
-            // Use the appropriate MIME type based on the file extension
-            const mimeType = this.currentFileExtension === 'mp4' ? 'video/mp4' : 'video/webm';
-            const blob = new Blob(this.recordedChunks, { type: mimeType });
+            // Force correct MIME type for blob creation to ensure compatibility
+            let blobMimeType;
+            if (this.currentFileExtension === 'mp4') {
+                // Use generic MP4 MIME type for blob to ensure compatibility
+                blobMimeType = 'video/mp4';
+            } else {
+                blobMimeType = 'video/webm';
+            }
+            
+            const blob = new Blob(this.recordedChunks, { type: blobMimeType });
             
             // Create download link
             const url = URL.createObjectURL(blob);
@@ -1068,7 +1106,7 @@ class ImageGridManager extends BaseGridManager {
             URL.revokeObjectURL(url);
             this.recordedChunks = [];
             
-            console.log(`Recording saved successfully as ${this.currentFileExtension.toUpperCase()}`);
+            console.log(`Recording saved successfully as ${this.currentFileExtension.toUpperCase()} with MIME type: ${blobMimeType}`);
             
         } catch (error) {
             console.error('Error saving recording:', error);
