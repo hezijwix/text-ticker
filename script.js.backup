@@ -23,29 +23,6 @@ class ProjectTemplate {
         this.splineDensitySlider = document.getElementById('splineDensitySlider');
         this.splineDensityValue = document.getElementById('splineDensityValue');
         
-        // Cursor trail controls
-        this.trailSpeedSlider = document.getElementById('trailSpeedSlider');
-        this.trailSpeedValue = document.getElementById('trailSpeedValue');
-        this.trailScaleSlider = document.getElementById('trailScaleSlider');
-        this.trailScaleValue = document.getElementById('trailScaleValue');
-        
-        // Shuffle controls
-        this.shuffleSpeedSlider = document.getElementById('shuffleSpeedSlider');
-        this.shuffleSpeedValue = document.getElementById('shuffleSpeedValue');
-        this.shuffleIntervalSlider = document.getElementById('shuffleIntervalSlider');
-        this.shuffleIntervalValue = document.getElementById('shuffleIntervalValue');
-        this.scatterPositionSlider = document.getElementById('scatterPositionSlider');
-        this.scatterPositionValue = document.getElementById('scatterPositionValue');
-        this.shuffleScaleSlider = document.getElementById('shuffleScaleSlider');
-        this.shuffleScaleValue = document.getElementById('shuffleScaleValue');
-        this.scatterScaleSlider = document.getElementById('scatterScaleSlider');
-        this.scatterScaleValue = document.getElementById('scatterScaleValue');
-        this.seedInput = document.getElementById('seedInput');
-        this.seedIncrementBtn = document.getElementById('seedIncrementBtn');
-        this.seedDecrementBtn = document.getElementById('seedDecrementBtn');
-        this.animateToggle = document.getElementById('animateCheckbox');
-        this.animateToggleText = document.querySelector('#animateToggle .toggle-text');
-        
         // Slider controls
         this.radiusSlider = document.getElementById('radiusSlider');
         this.radiusValue = document.getElementById('radiusValue');
@@ -92,16 +69,6 @@ class ProjectTemplate {
         this.splineImageDensity = 1; // Density control (1=few duplicates, 10=lots of duplicates)
         this.isRecreatingImages = false; // Prevent multiple simultaneous recreations
         
-        // Cursor trail properties
-        this.cursorPosition = { x: 0, y: 0 }; // Current cursor position
-        this.trailLength = 10; // Number of images in the trail
-        this.trailAnimationSpeed = 0.5; // Speed of following animation (0.1 = slow, 2.0 = fast)
-        this.trailImageScale = 1.0; // Scale for images in trail mode
-        this.trailImages = []; // Array to store trail image elements with target positions
-        this.trailAnimationId = null; // Track animation frame
-        this.isTrackingCursor = false; // Whether cursor tracking is active
-        this.mouseInCanvas = false; // Whether mouse is in canvas
-        
         // Gallery properties
         this.uploadedImages = []; // Array to store uploaded image data
         this.imagePlanes = []; // Array to store Three.js image planes
@@ -113,19 +80,6 @@ class ProjectTemplate {
         // Placeholder frames
         this.placeholderPlane = null; // 3D placeholder for ring mode
         this.hasPlaceholder = true; // Track if placeholder should be shown
-        
-        // Shuffle properties
-        this.shuffleImages = []; // Array to store 2D shuffle image elements
-        this.shuffleAnimationSpeed = 0.8; // Speed of shuffle animations
-        this.shuffleInterval = 3.0; // Time between automatic shuffles (seconds)
-        this.shuffleTimeout = null; // Timeout for automatic shuffling
-        this.isShuffling = false; // Prevent multiple simultaneous shuffles
-        this.animationEnabled = false; // Controls whether animations are enabled
-        this.scatterPosition = 1.0; // Controls spread of positions (0.1 = tight, 1.0 = full canvas)
-        this.shuffleScale = 1.0; // Controls overall base scale of all images
-        this.scatterScale = 1.0; // Controls variation in image sizes (0.1 = uniform, 1.0 = max variation)
-        this.seed = 0; // Random seed for reproducible shuffling
-        this.randomSeed = 0; // Current seed state for seeded random generator
         
         this.initEventListeners();
         this.initThreeJS();
@@ -197,126 +151,6 @@ class ProjectTemplate {
         // Also update the display value while dragging (but don't recreate images)
         this.splineDensitySlider.addEventListener('input', (e) => {
             this.splineDensityValue.textContent = e.target.value;
-        });
-        
-        // Cursor trail controls
-        this.trailSpeedSlider.addEventListener('input', (e) => {
-            this.trailAnimationSpeed = parseFloat(e.target.value);
-            this.trailSpeedValue.textContent = this.trailAnimationSpeed.toFixed(1);
-        });
-        
-        this.trailScaleSlider.addEventListener('input', (e) => {
-            this.trailImageScale = parseFloat(e.target.value);
-            this.trailScaleValue.textContent = this.trailImageScale.toFixed(1);
-            this.updateTrailImageScales();
-        });
-        
-        // Shuffle controls
-        this.shuffleSpeedSlider.addEventListener('input', (e) => {
-            this.shuffleAnimationSpeed = parseFloat(e.target.value);
-            this.shuffleSpeedValue.textContent = this.shuffleAnimationSpeed.toFixed(1);
-            // Update transition duration for all shuffle images with moderate exponential easing
-            this.shuffleImages.forEach(img => {
-                const duration = 2.1 - this.shuffleAnimationSpeed; // Invert speed: higher slider = faster animation
-                img.style.transition = `left ${duration}s cubic-bezier(0.87, 0, 0.13, 1), top ${duration}s cubic-bezier(0.87, 0, 0.13, 1)`;
-            });
-        });
-        
-        this.shuffleIntervalSlider.addEventListener('input', (e) => {
-            this.shuffleInterval = parseFloat(e.target.value);
-            this.shuffleIntervalValue.textContent = this.shuffleInterval.toFixed(1) + 's';
-            // Restart timer with new interval if animation is enabled
-            if (this.animationEnabled) {
-                this.resetShuffleTimer();
-            }
-        });
-        
-        this.scatterPositionSlider.addEventListener('input', (e) => {
-            this.scatterPosition = parseFloat(e.target.value);
-            this.scatterPositionValue.textContent = this.scatterPosition.toFixed(1);
-            // Update positions when scatter position slider changes
-            if (this.currentPreset === 'shuffle' && this.shuffleImages.length > 0) {
-                this.repositionShuffleImages();
-            }
-        });
-        
-        this.shuffleScaleSlider.addEventListener('input', (e) => {
-            this.shuffleScale = parseFloat(e.target.value);
-            this.shuffleScaleValue.textContent = this.shuffleScale.toFixed(1);
-            // Update shuffle when slider changes
-            if (this.currentPreset === 'shuffle' && this.shuffleImages.length > 0) {
-                this.performShuffle();
-            }
-        });
-        
-        this.scatterScaleSlider.addEventListener('input', (e) => {
-            this.scatterScale = parseFloat(e.target.value);
-            this.scatterScaleValue.textContent = this.scatterScale.toFixed(1);
-            // Update shuffle when slider changes
-            if (this.currentPreset === 'shuffle' && this.shuffleImages.length > 0) {
-                this.performShuffle();
-            }
-        });
-        
-        // Seed input
-        this.seedInput.addEventListener('input', (e) => {
-            let value = e.target.value.replace(/[^0-9]/g, ''); // Only allow numbers
-            if (value === '') value = '0';
-            const numValue = parseInt(value);
-            if (numValue > 9999) {
-                value = '9999';
-            }
-            e.target.value = value;
-            this.seed = parseInt(value);
-            // Update shuffle when seed changes
-            if (this.currentPreset === 'shuffle' && this.shuffleImages.length > 0) {
-                this.performShuffle();
-            }
-        });
-        
-        // Seed increment button
-        this.seedIncrementBtn.addEventListener('click', () => {
-            let currentValue = parseInt(this.seedInput.value) || 0;
-            if (currentValue < 9999) {
-                currentValue++;
-                this.seedInput.value = currentValue.toString();
-                this.seed = currentValue;
-                // Update shuffle when seed changes
-                if (this.currentPreset === 'shuffle' && this.shuffleImages.length > 0) {
-                    this.performShuffle();
-                }
-            }
-        });
-        
-        // Seed decrement button
-        this.seedDecrementBtn.addEventListener('click', () => {
-            let currentValue = parseInt(this.seedInput.value) || 0;
-            if (currentValue > 0) {
-                currentValue--;
-                this.seedInput.value = currentValue.toString();
-                this.seed = currentValue;
-                // Update shuffle when seed changes
-                if (this.currentPreset === 'shuffle' && this.shuffleImages.length > 0) {
-                    this.performShuffle();
-                }
-            }
-        });
-        
-        // Animate toggle switch
-        this.animateToggle.addEventListener('change', () => {
-            this.animationEnabled = this.animateToggle.checked;
-            this.animateToggleText.textContent = this.animationEnabled ? 'ON' : 'OFF';
-            
-            if (this.animationEnabled) {
-                // Start auto-shuffle timer
-                this.resetShuffleTimer();
-            } else {
-                // Stop auto-shuffle timer
-                if (this.shuffleTimeout) {
-                    clearTimeout(this.shuffleTimeout);
-                    this.shuffleTimeout = null;
-                }
-            }
         });
         
         // Radius slider
@@ -507,16 +341,6 @@ class ProjectTemplate {
                     } else if (this.currentPreset === 'follow-spline' && this.splinePoints.length > 0) {
                         // Recreate all images along spline
                         this.createImagesAlongSpline();
-                    } else if (this.currentPreset === 'cursor-trail') {
-                        // Recreate trail images with updated list
-                        this.createTrailImages();
-                    } else if (this.currentPreset === 'shuffle') {
-                        // Add image to shuffle mode
-                        this.removeShufflePlaceholder();
-                        // Reset seed for consistent image creation
-                        this.resetRandomSeed();
-                        this.createShuffleImageElement(imageData, this.uploadedImages.length - 1);
-                        // No shuffle needed when adding new image (no animation)
                     }
                 };
                 reader.readAsDataURL(file);
@@ -595,21 +419,6 @@ class ProjectTemplate {
             if (this.splinePoints.length > 0) {
                 this.createImagesAlongSpline();
             }
-        } else if (this.currentPreset === 'cursor-trail') {
-            // Recreate trail images with updated list
-            this.createTrailImages();
-        } else if (this.currentPreset === 'shuffle') {
-            // Find and remove from shuffle images
-            const imgToRemove = this.shuffleImages.find(img => img.userData.imageId === imageId);
-            if (imgToRemove && imgToRemove.parentNode) {
-                imgToRemove.parentNode.removeChild(imgToRemove);
-            }
-            this.shuffleImages = this.shuffleImages.filter(img => img.userData.imageId !== imageId);
-            
-            // Show placeholder if no images left
-            if (this.uploadedImages.length === 0) {
-                this.showShufflePlaceholder();
-            }
         }
     }
     
@@ -625,14 +434,6 @@ class ProjectTemplate {
                 // Show empty canvas for now
                 this.showFollowSplineGallery();
                 break;
-            case 'cursor-trail':
-                // Show cursor trail gallery
-                this.showCursorTrailGallery();
-                break;
-            case 'shuffle':
-                // Show shuffle gallery
-                this.showShuffleGallery();
-                break;
             default:
                 console.log('Unknown preset:', preset);
         }
@@ -641,11 +442,6 @@ class ProjectTemplate {
     showRingGallery() {
         // Enable ring gallery mode (current functionality)
         this.pathGroup.visible = true;
-        
-        // Stop cursor tracking if coming from trail mode
-        if (this.isTrackingCursor) {
-            this.stopCursorTracking();
-        }
         
         // Show ring-specific UI controls
         this.showRingControls();
@@ -658,10 +454,8 @@ class ProjectTemplate {
             this.canvas2D.style.display = 'none';
         }
         
-        // Clear 2D images, trail images, and shuffle images
+        // Clear 2D images
         this.clear2DImages();
-        this.clearTrailImages();
-        this.clearShuffleImages();
         
         // Recreate the circular path
         this.createCircularPath();
@@ -687,11 +481,6 @@ class ProjectTemplate {
         // Hide ring elements for empty canvas
         this.pathGroup.visible = false;
         
-        // Stop cursor tracking if coming from trail mode
-        if (this.isTrackingCursor) {
-            this.stopCursorTracking();
-        }
-        
         // Hide ring-specific UI controls
         this.hideRingControls();
         
@@ -699,10 +488,6 @@ class ProjectTemplate {
         if (this.renderer) {
             this.renderer.domElement.style.display = 'none';
         }
-        
-        // Clear shuffle images and trail images
-        this.clearShuffleImages();
-        this.clearTrailImages();
         
         // Create or show 2D canvas for spline drawing
         this.setup2DCanvas();
@@ -718,606 +503,15 @@ class ProjectTemplate {
         console.log('Follow spline mode activated - 2D canvas ready for drawing');
     }
     
-    showShuffleGallery() {
-        // Hide ring elements and Three.js renderer
-        this.pathGroup.visible = false;
-        
-        // Stop cursor tracking if coming from trail mode
-        if (this.isTrackingCursor) {
-            this.stopCursorTracking();
-        }
-        
-        // Hide ring-specific UI controls and show shuffle controls
-        this.showShuffleControls();
-        
-        // Hide Three.js renderer
-        if (this.renderer) {
-            this.renderer.domElement.style.display = 'none';
-        }
-        if (this.canvas2D) {
-            this.canvas2D.style.display = 'none';
-        }
-        
-        // Clear 2D spline images, trail images, and 3D images
-        this.clear2DImages();
-        this.clearTrailImages();
-        
-        // Create 2D shuffle images for all uploaded images
-        this.createShuffleImages();
-        
-        // Auto-shuffle disabled for now
-        // this.resetShuffleTimer();
-        
-        console.log('Shuffle gallery mode activated');
-    }
-    
-    showCursorTrailGallery() {
-        // Hide ring elements and Three.js renderer
-        this.pathGroup.visible = false;
-        
-        // Show cursor trail controls
-        this.showCursorTrailControls();
-        
-        // Hide Three.js renderer and show 2D canvas
-        if (this.renderer) {
-            this.renderer.domElement.style.display = 'none';
-        }
-        
-        // Clear other mode images
-        this.clear2DImages();
-        this.clearShuffleImages();
-        
-        // Create or show 2D canvas for cursor tracking
-        this.setup2DCanvas();
-        
-        // Clear any existing trail
-        this.clearTrailImages();
-        
-        // Create trail images
-        this.createTrailImages();
-        
-        // Start cursor tracking
-        this.startCursorTracking();
-        
-        console.log('Cursor trail mode activated - move your cursor to create a trail');
-    }
-    
-    showCursorTrailControls() {
-        // Hide all other control sections, only show cursor trail controls
-        const imageScaleSection = document.getElementById('imageScaleSection');
-        const circlePropertiesSection = document.getElementById('circlePropertiesSection');
-        const splinePropertiesSection = document.getElementById('splinePropertiesSection');
-        const cursorTrailPropertiesSection = document.getElementById('cursorTrailPropertiesSection');
-        const shufflePropertiesSection = document.getElementById('shufflePropertiesSection');
-        
-        if (imageScaleSection) imageScaleSection.style.display = 'none';
-        if (circlePropertiesSection) circlePropertiesSection.style.display = 'none';
-        if (splinePropertiesSection) splinePropertiesSection.style.display = 'none';
-        if (cursorTrailPropertiesSection) cursorTrailPropertiesSection.style.display = 'block';
-        if (shufflePropertiesSection) shufflePropertiesSection.style.display = 'none';
-    }
-    
-    clearTrailImages() {
-        this.trailImages.forEach(trailImg => {
-            if (trailImg.element && trailImg.element.parentNode) {
-                trailImg.element.parentNode.removeChild(trailImg.element);
-            }
-        });
-        this.trailImages = [];
-    }
-    
-    startCursorTracking() {
-        this.isTrackingCursor = true;
-        
-        // Add mouse move event listeners to the frame container
-        this.frameContainer.addEventListener('mousemove', this.trackCursor.bind(this));
-        this.frameContainer.addEventListener('mouseenter', this.onMouseEnter.bind(this));
-        this.frameContainer.addEventListener('mouseleave', this.onMouseLeave.bind(this));
-        
-        // Start animation loop
-        this.animateTrail();
-    }
-    
-    stopCursorTracking() {
-        this.isTrackingCursor = false;
-        this.mouseInCanvas = false;
-        
-        // Remove event listeners
-        this.frameContainer.removeEventListener('mousemove', this.trackCursor.bind(this));
-        this.frameContainer.removeEventListener('mouseenter', this.onMouseEnter.bind(this));
-        this.frameContainer.removeEventListener('mouseleave', this.onMouseLeave.bind(this));
-        
-        // Stop animation
-        if (this.trailAnimationId) {
-            cancelAnimationFrame(this.trailAnimationId);
-            this.trailAnimationId = null;
-        }
-    }
-    
-    onMouseEnter(e) {
-        this.mouseInCanvas = true;
-        this.trackCursor(e);
-    }
-    
-    onMouseLeave() {
-        this.mouseInCanvas = false;
-    }
-    
-    trackCursor(e) {
-        if (!this.isTrackingCursor || this.currentPreset !== 'cursor-trail') return;
-        
-        // Get mouse position relative to canvas
-        const rect = this.frameContainer.getBoundingClientRect();
-        this.cursorPosition.x = e.clientX - rect.left;
-        this.cursorPosition.y = e.clientY - rect.top;
-    }
-    
-    createTrailImages() {
-        // Clear existing trail images
-        this.clearTrailImages();
-        
-        if (this.uploadedImages.length === 0) return;
-        
-        // Create trail images based on trail length
-        const numImages = Math.min(this.trailLength, this.uploadedImages.length);
-        
-        for (let i = 0; i < numImages; i++) {
-            const imageData = this.uploadedImages[i % this.uploadedImages.length];
-            this.createTrailImageElement(imageData, i);
-        }
-    }
-    
-    createTrailImageElement(imageData, index) {
-        const img = document.createElement('img');
-        img.src = imageData.dataUrl;
-        img.style.position = 'absolute';
-        img.style.pointerEvents = 'none';
-        img.style.zIndex = (1000 - index).toString(); // First image (index 0) has highest z-index
-        img.style.borderRadius = '4px';
-        img.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
-        img.style.transition = 'none'; // No CSS transitions, we'll animate manually
-        
-        // Set initial position off-screen
-        const frameSize = this.getFrameSize();
-        img.style.left = (frameSize.width / 2) + 'px';
-        img.style.top = (frameSize.height / 2) + 'px';
-        
-        img.onload = () => {
-            const aspectRatio = img.naturalWidth / img.naturalHeight;
-            
-            // Calculate size based on trail scale
-            const baseSize = 80 * this.trailImageScale;
-            
-            if (aspectRatio > 1) {
-                // Landscape
-                img.style.width = baseSize + 'px';
-                img.style.height = (baseSize / aspectRatio) + 'px';
-            } else {
-                // Portrait
-                img.style.width = (baseSize * aspectRatio) + 'px';
-                img.style.height = baseSize + 'px';
-            }
-        };
-        
-        // Create trail image object
-        const trailImageObj = {
-            element: img,
-            currentX: frameSize.width / 2,
-            currentY: frameSize.height / 2,
-            targetX: frameSize.width / 2,
-            targetY: frameSize.height / 2,
-            index: index,
-            imageData: imageData
-        };
-        
-        this.frameContainer.appendChild(img);
-        this.trailImages.push(trailImageObj);
-    }
-    
-    animateTrail() {
-        if (!this.isTrackingCursor || this.currentPreset !== 'cursor-trail') return;
-        
-        // Set target positions for each image in the trail
-        if (this.trailImages.length > 0) {
-            // First image follows cursor
-            if (this.mouseInCanvas) {
-                this.trailImages[0].targetX = this.cursorPosition.x;
-                this.trailImages[0].targetY = this.cursorPosition.y;
-            }
-            
-            // Each subsequent image follows the previous one
-            for (let i = 1; i < this.trailImages.length; i++) {
-                const prevImage = this.trailImages[i - 1];
-                this.trailImages[i].targetX = prevImage.currentX;
-                this.trailImages[i].targetY = prevImage.currentY;
-            }
-            
-            // Animate each image towards its target
-            this.trailImages.forEach(trailImg => {
-                // Lerp towards target position
-                const lerpFactor = this.trailAnimationSpeed * 0.1; // Convert speed to 0-0.2 range
-                
-                trailImg.currentX += (trailImg.targetX - trailImg.currentX) * lerpFactor;
-                trailImg.currentY += (trailImg.targetY - trailImg.currentY) * lerpFactor;
-                
-                // Update DOM position
-                const imgWidth = trailImg.element.offsetWidth || 80;
-                const imgHeight = trailImg.element.offsetHeight || 80;
-                
-                trailImg.element.style.left = (trailImg.currentX - imgWidth / 2) + 'px';
-                trailImg.element.style.top = (trailImg.currentY - imgHeight / 2) + 'px';
-            });
-        }
-        
-        // Continue animation
-        this.trailAnimationId = requestAnimationFrame(() => this.animateTrail());
-    }
-    
-    updateTrailImageScales() {
-        this.trailImages.forEach(trailImg => {
-            const img = trailImg.element;
-            if (img.naturalWidth && img.naturalHeight) {
-                const aspectRatio = img.naturalWidth / img.naturalHeight;
-                const baseSize = 80 * this.trailImageScale;
-                
-                if (aspectRatio > 1) {
-                    img.style.width = baseSize + 'px';
-                    img.style.height = (baseSize / aspectRatio) + 'px';
-                } else {
-                    img.style.width = (baseSize * aspectRatio) + 'px';
-                    img.style.height = baseSize + 'px';
-                }
-            }
-        });
-    }
-    
-    showShuffleControls() {
-        // Hide all other control sections, only show shuffle controls
-        const imageScaleSection = document.getElementById('imageScaleSection');
-        const circlePropertiesSection = document.getElementById('circlePropertiesSection');
-        const splinePropertiesSection = document.getElementById('splinePropertiesSection');
-        const shufflePropertiesSection = document.getElementById('shufflePropertiesSection');
-        
-        if (imageScaleSection) imageScaleSection.style.display = 'none';
-        if (circlePropertiesSection) circlePropertiesSection.style.display = 'none';
-        if (splinePropertiesSection) splinePropertiesSection.style.display = 'none';
-        if (shufflePropertiesSection) shufflePropertiesSection.style.display = 'block';
-    }
-    
-    createShuffleImages() {
-        // Clear existing shuffle images
-        this.clearShuffleImages();
-        
-        if (this.uploadedImages.length === 0) {
-            this.showShufflePlaceholder();
-            return;
-        }
-        
-        // Remove placeholder
-        this.removeShufflePlaceholder();
-        
-        // Set initial random seed for image creation
-        this.resetRandomSeed();
-        
-        // Create randomly positioned and sized images
-        this.uploadedImages.forEach((imageData, index) => {
-            this.createShuffleImageElement(imageData, index);
-        });
-        
-        // Perform initial shuffle to randomize positions (no delay needed without animation)
-        this.performShuffle();
-    }
-    
-    createShuffleImageElement(imageData, index) {
-        const img = document.createElement('img');
-        img.src = imageData.dataUrl;
-        img.style.position = 'absolute';
-        img.style.pointerEvents = 'none';
-        img.style.zIndex = '10';
-        img.style.borderRadius = '4px';
-        img.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
-        // Add moderate exponential ease-in-out transition for position changes
-        const duration = 2.1 - this.shuffleAnimationSpeed; // Invert speed: higher slider = faster animation
-        img.style.transition = `left ${duration}s cubic-bezier(0.87, 0, 0.13, 1), top ${duration}s cubic-bezier(0.87, 0, 0.13, 1)`;
-        
-        // Calculate size based on scatter scale
-        // scatterScale = 0.0 means all images are base size (80px)
-        // scatterScale = 1.0 means some images scale up to 250px (never smaller than base)
-        const baseSize = 80; // Minimum size for images
-        const maxVariation = 170 * this.scatterScale; // Only scale up from base size
-        const randomSize = baseSize + (this.seededRandom() * maxVariation);
-        
-        img.onload = () => {
-            const aspectRatio = img.naturalWidth / img.naturalHeight;
-            
-            if (aspectRatio > 1) {
-                // Landscape
-                img.style.width = randomSize + 'px';
-                img.style.height = (randomSize / aspectRatio) + 'px';
-            } else {
-                // Portrait
-                img.style.width = (randomSize * aspectRatio) + 'px';
-                img.style.height = randomSize + 'px';
-            }
-            
-            // Update transition with current animation speed and moderate exponential easing
-            const duration = 2.1 - this.shuffleAnimationSpeed; // Invert speed: higher slider = faster animation
-            img.style.transition = `left ${duration}s cubic-bezier(0.87, 0, 0.13, 1), top ${duration}s cubic-bezier(0.87, 0, 0.13, 1)`;
-            
-            // Set random initial position immediately (no delay needed without animation)
-            this.randomizeImagePosition(img);
-        };
-        
-        img.userData = {
-            imageId: imageData.id,
-            index: index,
-            baseSize: randomSize
-        };
-        
-        this.frameContainer.appendChild(img);
-        this.shuffleImages.push(img);
-    }
-    
-    randomizeImagePosition(img) {
-        const frameSize = this.getFrameSize();
-        const margin = 20; // Margin from edges
-        
-        // Get image dimensions (fallback to 100x100 if not loaded yet)
-        const imgWidth = img.offsetWidth || 100;
-        const imgHeight = img.offsetHeight || 100;
-        
-        // Calculate canvas center
-        const canvasCenterX = frameSize.width / 2;
-        const canvasCenterY = frameSize.height / 2;
-        
-        if (this.scatterPosition === 0) {
-            // When scatter position is 0, place all images at the center
-            const leftPos = canvasCenterX - imgWidth / 2;
-            const topPos = canvasCenterY - imgHeight / 2;
-            
-            img.style.left = leftPos + 'px';
-            img.style.top = topPos + 'px';
-        } else {
-            // Calculate available space for image centers (accounting for image dimensions)
-            const minCenterX = margin + imgWidth / 2;
-            const maxCenterX = frameSize.width - margin - imgWidth / 2;
-            const minCenterY = margin + imgHeight / 2;
-            const maxCenterY = frameSize.height - margin - imgHeight / 2;
-            
-            // Calculate scatter range around canvas center
-            const maxScatterX = (maxCenterX - minCenterX) / 2;
-            const maxScatterY = (maxCenterY - minCenterY) / 2;
-            
-            const scatterRangeX = maxScatterX * this.scatterPosition;
-            const scatterRangeY = maxScatterY * this.scatterPosition;
-            
-            // Calculate random center position within scatter bounds
-            const randomCenterX = canvasCenterX + (this.seededRandom() - 0.5) * 2 * scatterRangeX;
-            const randomCenterY = canvasCenterY + (this.seededRandom() - 0.5) * 2 * scatterRangeY;
-            
-            // Clamp to bounds and convert to top-left position
-            const clampedCenterX = Math.max(minCenterX, Math.min(maxCenterX, randomCenterX));
-            const clampedCenterY = Math.max(minCenterY, Math.min(maxCenterY, randomCenterY));
-            
-            const leftPos = clampedCenterX - imgWidth / 2;
-            const topPos = clampedCenterY - imgHeight / 2;
-            
-            img.style.left = leftPos + 'px';
-            img.style.top = topPos + 'px';
-        }
-    }
-    
-    // Seeded random number generator (Linear Congruential Generator)
-    seededRandom() {
-        this.randomSeed = (this.randomSeed * 1664525 + 1013904223) % 4294967296;
-        return this.randomSeed / 4294967296;
-    }
-    
-    // Reset seed state for reproducible results
-    resetRandomSeed() {
-        this.randomSeed = this.seed;
-    }
-    
-    performShuffle() {
-        if (this.isShuffling || this.shuffleImages.length === 0) return;
-        
-        this.isShuffling = true;
-        
-        // Reset random seed for reproducible results
-        this.resetRandomSeed();
-        
-        // Randomize positions, sizes, and stacking order of all images
-        this.shuffleImages.forEach((img, index) => {
-            // Calculate base size from shuffle scale (overall scale)
-            const baseSize = 120 * this.shuffleScale; // Base size controlled by Scale slider
-            
-            // Calculate size variation based on scatter scale
-            let newSize;
-            if (this.scatterScale === 0) {
-                // No variation - all images same size
-                newSize = baseSize;
-            } else {
-                // Apply scatter variation around base size
-                const variationRange = baseSize * this.scatterScale * 2; // Total variation range
-                const minSize = Math.max(20, baseSize - variationRange / 2); // Minimum size
-                const maxSize = baseSize + variationRange / 2; // Maximum size
-                newSize = minSize + (this.seededRandom() * (maxSize - minSize));
-            }
-            
-            const aspectRatio = img.naturalWidth / img.naturalHeight;
-            
-            // Calculate new dimensions
-            let newWidth, newHeight;
-            if (aspectRatio > 1) {
-                newWidth = newSize;
-                newHeight = newSize / aspectRatio;
-            } else {
-                newWidth = newSize * aspectRatio;
-                newHeight = newSize;
-            }
-            
-            // Apply new size
-            img.style.width = newWidth + 'px';
-            img.style.height = newHeight + 'px';
-            
-            // Randomize z-index for stacking order (range: 1-1000)
-            const randomZIndex = Math.floor(this.seededRandom() * 1000) + 1;
-            img.style.zIndex = randomZIndex.toString();
-            
-            // Always randomize position when performing full shuffle
-            this.randomizeImagePosition(img);
-        });
-        
-        // Don't restart timer here - let the animation timer handle continuous animation
-        // Manual shuffle calls shouldn't restart the animation timer
-        
-        // Allow shuffling again immediately (no animation delay)
-        this.isShuffling = false;
-    }
-    
-    repositionShuffleImages() {
-        if (this.shuffleImages.length === 0) return;
-        
-        // Reset random seed for reproducible results
-        this.resetRandomSeed();
-        
-        // Reposition images and randomize stacking order, but don't change sizes
-        this.shuffleImages.forEach((img) => {
-            // Randomize z-index for stacking order (range: 1-1000)
-            const randomZIndex = Math.floor(this.seededRandom() * 1000) + 1;
-            img.style.zIndex = randomZIndex.toString();
-            
-            // Randomize position
-            this.randomizeImagePosition(img);
-        });
-    }
-    
-    animatePositions() {
-        if (this.shuffleImages.length === 0) return;
-        
-        // Reset random seed for current seed value to ensure reproducible animation
-        this.resetRandomSeed();
-        
-        // Only animate positions, keep current sizes and stacking order
-        this.shuffleImages.forEach((img) => {
-            // Skip z-index changes during animation - keep current layering
-            
-            // Animate to new random position
-            this.randomizeImagePosition(img);
-        });
-        
-        // Increment seed for next animation cycle to get different positions
-        this.seed = (this.seed + 1) % 10000;
-        this.seedInput.value = this.seed.toString();
-    }
-    
-    resetShuffleTimer() {
-        // Clear existing timer
-        if (this.shuffleTimeout) {
-            clearTimeout(this.shuffleTimeout);
-        }
-        
-        // Set new timer only if in shuffle mode and animation is enabled
-        if (this.currentPreset === 'shuffle' && this.shuffleInterval > 0 && this.animationEnabled) {
-            this.shuffleTimeout = setTimeout(() => {
-                this.animatePositions();
-                // Restart timer for continuous animation
-                this.resetShuffleTimer();
-            }, this.shuffleInterval * 1000);
-        }
-    }
-    
-    clearShuffleImages() {
-        this.shuffleImages.forEach(img => {
-            if (img.parentNode) {
-                img.parentNode.removeChild(img);
-            }
-        });
-        this.shuffleImages = [];
-    }
-    
-    showShufflePlaceholder() {
-        const frameSize = this.getFrameSize();
-        const margin = 20;
-        const placeholder = document.createElement('div');
-        placeholder.className = 'shuffle-placeholder';
-        placeholder.style.position = 'absolute';
-        
-        // Center the placeholder with margin consideration
-        const placeholderWidth = 200;
-        const placeholderHeight = 60;
-        const centerX = Math.max(margin, (frameSize.width - placeholderWidth) / 2);
-        const centerY = Math.max(margin, (frameSize.height - placeholderHeight) / 2);
-        
-        placeholder.style.left = centerX + 'px';
-        placeholder.style.top = centerY + 'px';
-        placeholder.style.width = placeholderWidth + 'px';
-        placeholder.style.height = placeholderHeight + 'px';
-        placeholder.style.backgroundColor = '#2a2a2a';
-        placeholder.style.border = '2px dashed #666666';
-        placeholder.style.borderRadius = '8px';
-        placeholder.style.display = 'flex';
-        placeholder.style.alignItems = 'center';
-        placeholder.style.justifyContent = 'center';
-        placeholder.style.color = '#888888';
-        placeholder.style.fontSize = '14px';
-        placeholder.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-        placeholder.textContent = 'Add images to shuffle';
-        
-        this.frameContainer.appendChild(placeholder);
-        this.shufflePlaceholder = placeholder;
-    }
-    
-    removeShufflePlaceholder() {
-        if (this.shufflePlaceholder && this.shufflePlaceholder.parentNode) {
-            this.shufflePlaceholder.parentNode.removeChild(this.shufflePlaceholder);
-            this.shufflePlaceholder = null;
-        }
-    }
-    
-    repositionShuffleImagesWithinBounds() {
-        const frameSize = this.getFrameSize();
-        const margin = 20;
-        
-        this.shuffleImages.forEach((img) => {
-            const imgWidth = img.offsetWidth || 100;
-            const imgHeight = img.offsetHeight || 100;
-            
-            // Get current position
-            const currentX = parseInt(img.style.left) || 0;
-            const currentY = parseInt(img.style.top) || 0;
-            
-            // Calculate bounds
-            const minX = margin;
-            const minY = margin;
-            const maxX = frameSize.width - imgWidth - margin;
-            const maxY = frameSize.height - imgHeight - margin;
-            
-            // Clamp position to bounds
-            const newX = Math.max(minX, Math.min(maxX, currentX));
-            const newY = Math.max(minY, Math.min(maxY, currentY));
-            
-            // Update position if needed
-            if (newX !== currentX || newY !== currentY) {
-                img.style.left = newX + 'px';
-                img.style.top = newY + 'px';
-            }
-        });
-    }
-    
     showRingControls() {
         // Show controls specific to ring gallery
         const imageScaleSection = document.getElementById('imageScaleSection');
         const circlePropertiesSection = document.getElementById('circlePropertiesSection');
         const splinePropertiesSection = document.getElementById('splinePropertiesSection');
-        const cursorTrailPropertiesSection = document.getElementById('cursorTrailPropertiesSection');
-        const shufflePropertiesSection = document.getElementById('shufflePropertiesSection');
         
         if (imageScaleSection) imageScaleSection.style.display = 'block';
         if (circlePropertiesSection) circlePropertiesSection.style.display = 'block';
         if (splinePropertiesSection) splinePropertiesSection.style.display = 'none';
-        if (cursorTrailPropertiesSection) cursorTrailPropertiesSection.style.display = 'none';
-        if (shufflePropertiesSection) shufflePropertiesSection.style.display = 'none';
     }
     
     hideRingControls() {
@@ -1325,14 +519,10 @@ class ProjectTemplate {
         const imageScaleSection = document.getElementById('imageScaleSection');
         const circlePropertiesSection = document.getElementById('circlePropertiesSection');
         const splinePropertiesSection = document.getElementById('splinePropertiesSection');
-        const cursorTrailPropertiesSection = document.getElementById('cursorTrailPropertiesSection');
-        const shufflePropertiesSection = document.getElementById('shufflePropertiesSection');
         
         if (imageScaleSection) imageScaleSection.style.display = 'none';
         if (circlePropertiesSection) circlePropertiesSection.style.display = 'none';
         if (splinePropertiesSection) splinePropertiesSection.style.display = 'block';
-        if (cursorTrailPropertiesSection) cursorTrailPropertiesSection.style.display = 'none';
-        if (shufflePropertiesSection) shufflePropertiesSection.style.display = 'none';
     }
     
     createImagePlane(imageData) {
@@ -1608,17 +798,6 @@ class ProjectTemplate {
                 this.drawSpline();
             }
         }
-        
-        // Handle shuffle images resize - reposition them within new bounds
-        if (this.currentPreset === 'shuffle') {
-            if (this.shuffleImages.length > 0) {
-                this.repositionShuffleImagesWithinBounds();
-            } else if (this.shufflePlaceholder) {
-                // Reposition placeholder if it exists
-                this.removeShufflePlaceholder();
-                this.showShufflePlaceholder();
-            }
-        }
     }
     
     applyFrameSize() {
@@ -1667,9 +846,6 @@ class ProjectTemplate {
         if (this.animationId) {
             cancelAnimationFrame(this.animationId);
         }
-        if (this.shuffleTimeout) {
-            clearTimeout(this.shuffleTimeout);
-        }
         if (this.renderer) {
             this.renderer.dispose();
         }
@@ -1682,9 +858,6 @@ class ProjectTemplate {
                 plane.material.dispose();
             }
         });
-        
-        // Cleanup shuffle images
-        this.clearShuffleImages();
     }
     
     updateImageScales() {
@@ -1728,8 +901,8 @@ class ProjectTemplate {
         // Show canvas
         this.canvas2D.style.display = 'block';
         
-        // Clear and set background, show instruction text if no spline exists (only for follow-spline mode)
-        if (this.currentPreset === 'follow-spline' && this.splinePoints.length === 0) {
+        // Clear and set background, show instruction text if no spline exists
+        if (this.splinePoints.length === 0) {
             this.drawSplinePlaceholder();
         } else {
             this.clearCanvas();
@@ -1997,17 +1170,13 @@ class ProjectTemplate {
             this.showRingPlaceholder();
         } else if (this.currentPreset === 'follow-spline') {
             this.showSplinePlaceholder();
-        } else if (this.currentPreset === 'shuffle') {
-            this.showShufflePlaceholder();
         }
-        // No placeholder for cursor-trail mode
         this.hasPlaceholder = true;
     }
     
     removePlaceholders() {
         this.removeRingPlaceholder();
         this.removeSplinePlaceholder();
-        this.removeShufflePlaceholder();
         this.hasPlaceholder = false;
     }
     
