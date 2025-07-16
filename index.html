@@ -7,6 +7,9 @@
     <link rel="stylesheet" href="style.css">
     <!-- Three.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <!-- FFmpeg.js for MP4 conversion -->
+    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+    <script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/util.js"></script>
 </head>
 <body>
     <!-- Header -->
@@ -167,6 +170,14 @@
             </div>
 
             <div class="controls-section">
+                <h4>Background Color</h4>
+                <div class="color-control-row">
+                    <label for="backgroundColorPicker">Color:</label>
+                    <input type="color" id="backgroundColorPicker" value="#121212" class="color-picker">
+                </div>
+            </div>
+
+            <div class="controls-section">
                 <h4>Frame Size</h4>
                 <div class="frame-control-row">
                     <label for="frameWidth">Width:</label>
@@ -179,6 +190,11 @@
                     <span>px</span>
                 </div>
                 <button class="control-btn" id="applySizeBtn">Apply Size</button>
+            </div>
+
+            <div class="controls-section">
+                <h4>Export Video</h4>
+                <button class="control-btn export-btn" id="exportBtn">Export MP4</button>
             </div>
         </div>
         

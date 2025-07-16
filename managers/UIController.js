@@ -39,7 +39,10 @@ export class UIController {
             
             // Scale control (shared)
             scaleSlider: document.getElementById('scaleSlider'),
-            scaleValue: document.getElementById('scaleValue')
+            scaleValue: document.getElementById('scaleValue'),
+            
+            // Background color control
+            backgroundColorPicker: document.getElementById('backgroundColorPicker')
         };
         
         this.sections = {
@@ -160,6 +163,11 @@ export class UIController {
             const value = parseFloat(e.target.value);
             this.controls.scaleValue.textContent = value.toFixed(1);
             this.triggerCallback('scaleChange', value);
+        });
+        
+        // Background color control
+        this.controls.backgroundColorPicker.addEventListener('change', (e) => {
+            this.triggerCallback('backgroundColorChange', e.target.value);
         });
         
         // Window resize

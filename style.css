@@ -157,6 +157,57 @@ body {
     margin-left: 8px;
 }
 
+.color-control-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+    font-size: 12px;
+}
+
+.color-control-row label {
+    min-width: 60px;
+    color: var(--text-color);
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.color-picker {
+    width: 60px;
+    height: 32px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: transparent;
+    cursor: pointer;
+    padding: 0;
+    margin-left: 8px;
+}
+
+.color-picker:hover {
+    border-color: var(--text-color-light);
+}
+
+.color-picker:focus {
+    outline: none;
+    border-color: var(--button-primary);
+}
+
+.export-btn {
+    background-color: #0066cc;
+    color: white;
+    font-weight: 500;
+}
+
+.export-btn:hover {
+    background-color: #0052a3;
+}
+
+.export-btn:disabled {
+    background-color: #666;
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
 /* Control Button */
 .control-btn {
     background-color: var(--button-primary);

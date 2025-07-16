@@ -61,6 +61,16 @@ class ProjectTemplate {
         this.rotationZValue = document.getElementById('rotationZValue');
         this.resetRotationBtn = document.getElementById('resetRotationBtn');
         
+        // Background color picker
+        this.backgroundColorPicker = document.getElementById('backgroundColorPicker');
+        
+        // Export button
+        this.exportBtn = document.getElementById('exportBtn');
+        
+        // FFmpeg instance for video conversion
+        this.ffmpeg = null;
+        this.ffmpegLoaded = false;
+        
         // Three.js properties
         this.scene = null;
         this.camera = null;
@@ -129,6 +139,7 @@ class ProjectTemplate {
         
         this.initEventListeners();
         this.initThreeJS();
+        this.initFFmpeg();
     }
     
     initEventListeners() {
@@ -364,6 +375,16 @@ class ProjectTemplate {
         // Reset rotation button
         this.resetRotationBtn.addEventListener('click', () => {
             this.resetRotation();
+        });
+        
+        // Background color picker
+        this.backgroundColorPicker.addEventListener('change', (e) => {
+            this.setBackgroundColor(e.target.value);
+        });
+        
+        // Export button
+        this.exportBtn.addEventListener('click', () => {
+            this.handleExport();
         });
         
         // Handle window resize
@@ -1484,17 +1505,17 @@ class ProjectTemplate {
         geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
         
         // Create material for the path
-        const material = new THREE.LineBasicMaterial({ 
-            color: 0x00ff88,
-            linewidth: 3
-        });
+        // const material = new THREE.LineBasicMaterial({ 
+        //     color: 0x00ff88,
+        //     linewidth: 3
+        // });
         
         // Create the line and add to group
-        this.circularPath = new THREE.Line(geometry, material);
-        this.pathGroup.add(this.circularPath);
+        // this.circularPath = new THREE.Line(geometry, material);
+        // this.pathGroup.add(this.circularPath);
         
         // Add path markers to group
-        this.addPathMarkers(radius, segments);
+        // this.addPathMarkers(radius, segments);
         
         // Apply current world rotation
         this.updateWorldRotation();
@@ -1518,11 +1539,11 @@ class ProjectTemplate {
         }
         
         // Add a center reference point
-        const centerGeometry = new THREE.SphereGeometry(0.1, 12, 12);
-        const centerMaterial = new THREE.MeshBasicMaterial({ color: 0xff4444 });
-        this.centerSphere = new THREE.Mesh(centerGeometry, centerMaterial);
-        this.centerSphere.position.set(0, this.currentHeight, 0); // Use height slider value instead of hardcoded 0
-        this.pathGroup.add(this.centerSphere);
+        // const centerGeometry = new THREE.SphereGeometry(0.1, 12, 12);
+        // const centerMaterial = new THREE.MeshBasicMaterial({ color: 0xff4444 });
+        // this.centerSphere = new THREE.Mesh(centerGeometry, centerMaterial);
+        // this.centerSphere.position.set(0, this.currentHeight, 0); // Use height slider value instead of hardcoded 0
+        // this.pathGroup.add(this.centerSphere);
     }
     
     updateCircularPath() {
@@ -1558,6 +1579,186 @@ class ProjectTemplate {
         // Reset X and Z rotations but preserve Y (local spinning)
         const currentLocalY = this.rotationGroup.rotation.y;
         this.rotationGroup.rotation.set(0, currentLocalY, 0);
+    }
+    
+    setBackgroundColor(color) {
+        if (this.scene) {
+            this.scene.background = new THREE.Color(color);
+        }
+    }
+    
+    handleExport() {
+        // Ask user for duration
+        const duration = prompt('Enter video duration in seconds (1-60):', '5');
+        
+        if (!duration || isNaN(duration)) {
+            alert('Please enter a valid number.');
+            return;
+        }
+        
+        const durationNum = parseFloat(duration);
+        if (durationNum < 1 || durationNum > 60) {
+            alert('Duration must be between 1 and 60 seconds.');
+            return;
+        }
+        
+        this.startVideoRecording(durationNum);
+    }
+    
+    startVideoRecording(duration) {
+        if (!this.renderer || !this.renderer.domElement) {
+            alert('Canvas not ready for recording');
+            return;
+        }
+        
+        // Disable export button during recording
+        this.exportBtn.disabled = true;
+        this.exportBtn.textContent = 'Recording...';
+        
+        const canvas = this.renderer.domElement;
+        const stream = canvas.captureStream(30); // 30 fps
+        
+        const mediaRecorder = new MediaRecorder(stream, {
+            mimeType: 'video/webm; codecs=vp9'
+        });
+        
+        const chunks = [];
+        
+        mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+                chunks.push(event.data);
+            }
+        };
+        
+        mediaRecorder.onstop = () => {
+            const blob = new Blob(chunks, { type: 'video/webm' });
+            this.convertToMP4(blob);
+        };
+        
+        mediaRecorder.start();
+        
+        // Stop recording after specified duration
+        setTimeout(() => {
+            mediaRecorder.stop();
+        }, duration * 1000);
+    }
+    
+    async initFFmpeg() {
+        try {
+            // Check if FFmpeg is available in global scope
+            if (typeof window.FFmpeg === 'undefined') {
+                console.error('FFmpeg not found in global scope');
+                this.ffmpegLoaded = false;
+                return;
+            }
+            
+            const { FFmpeg } = window.FFmpeg;
+            const { fetchFile } = window.FFmpegUtil;
+            
+            this.ffmpeg = new FFmpeg();
+            
+            this.ffmpeg.on('log', ({ message }) => {
+                console.log('FFmpeg:', message);
+            });
+            
+            this.ffmpeg.on('progress', ({ progress }) => {
+                console.log('FFmpeg progress:', progress);
+            });
+            
+            // Load FFmpeg core with proper base URL
+            await this.ffmpeg.load({
+                coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
+                wasmURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm'
+            });
+            
+            this.ffmpegLoaded = true;
+            console.log('FFmpeg loaded successfully');
+        } catch (error) {
+            console.error('Failed to load FFmpeg:', error);
+            console.error('Error details:', error.message);
+            this.ffmpegLoaded = false;
+        }
+    }
+    
+    async convertToMP4(webmBlob) {
+        console.log('convertToMP4 called, ffmpegLoaded:', this.ffmpegLoaded);
+        
+        if (!this.ffmpegLoaded) {
+            console.log('FFmpeg not loaded, falling back to WebM');
+            this.downloadWebM(webmBlob);
+            return;
+        }
+        
+        try {
+            this.exportBtn.textContent = 'Converting to MP4...';
+            console.log('Starting MP4 conversion...');
+            
+            // Convert blob to array buffer
+            const arrayBuffer = await webmBlob.arrayBuffer();
+            const uint8Array = new Uint8Array(arrayBuffer);
+            console.log('WebM blob size:', uint8Array.length);
+            
+            // Write input file to FFmpeg's virtual file system
+            await this.ffmpeg.writeFile('input.webm', uint8Array);
+            console.log('Input file written to FFmpeg filesystem');
+            
+            // Convert WebM to MP4 with H.264 codec
+            console.log('Starting FFmpeg conversion...');
+            await this.ffmpeg.exec([
+                '-i', 'input.webm',
+                '-c:v', 'libx264',
+                '-preset', 'fast',
+                '-crf', '23',
+                '-pix_fmt', 'yuv420p',
+                'output.mp4'
+            ]);
+            
+            console.log('FFmpeg conversion completed');
+            
+            // Read the output file
+            const data = await this.ffmpeg.readFile('output.mp4');
+            const mp4Blob = new Blob([data.buffer], { type: 'video/mp4' });
+            console.log('MP4 blob created, size:', mp4Blob.size);
+            
+            // Download the MP4 file
+            const url = URL.createObjectURL(mp4Blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `gallery-animation-${Date.now()}.mp4`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            console.log('MP4 file downloaded successfully');
+            
+            // Clean up
+            await this.ffmpeg.deleteFile('input.webm');
+            await this.ffmpeg.deleteFile('output.mp4');
+            
+        } catch (error) {
+            console.error('MP4 conversion failed:', error);
+            console.error('Error stack:', error.stack);
+            alert('MP4 conversion failed: ' + error.message + '. Downloading as WebM instead.');
+            this.downloadWebM(webmBlob);
+        }
+        
+        // Re-enable export button
+        this.exportBtn.disabled = false;
+        this.exportBtn.textContent = 'Export MP4';
+    }
+    
+    downloadWebM(webmBlob) {
+        const url = URL.createObjectURL(webmBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `gallery-animation-${Date.now()}.webm`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        alert('Video exported as WebM format. For MP4 conversion, you can use online converters or video editing software.');
     }
     
     addLighting() {

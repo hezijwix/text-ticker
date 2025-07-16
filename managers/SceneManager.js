@@ -133,6 +133,12 @@ export class SceneManager {
         }
     }
     
+    setBackgroundColor(color) {
+        if (this.scene) {
+            this.scene.background = new THREE.Color(color);
+        }
+    }
+    
     destroy() {
         this.stopRenderLoop();
         if (this.renderer) {

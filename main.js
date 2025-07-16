@@ -54,6 +54,10 @@ class GenerativeGallery {
             this.sceneManager.resize();
         });
         
+        this.uiController.on('backgroundColorChange', (color) => {
+            this.sceneManager.setBackgroundColor(color);
+        });
+        
         // Ring gallery specific callbacks
         this.uiController.on('radiusChange', (value) => {
             this.ringGallery.setRadius(value);
