@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Template</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Three.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <!-- FFmpeg.js for MP4 conversion -->
+    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+    <script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/util.js"></script>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="header-credit">MADE BY STUDIO-VIDEO</div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Side Panel -->
+        <div class="side-panel">
+            <div class="controls-section">
+                <h4>Gallery Images</h4>
+                <div class="image-upload-container">
+                    <div class="upload-area" id="uploadArea">
+                        <div class="upload-button" id="uploadButton">
+                            <span class="upload-icon">+</span>
+                            <span class="upload-text">Add Image</span>
+                        </div>
+                        <input type="file" id="imageInput" accept="image/*" multiple style="display: none;">
+                    </div>
+                    <div class="thumbnails-container" id="thumbnailsContainer">
+                        <!-- Thumbnails will be added here dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="controls-section">
+                <h4>Gallery Preset</h4>
+                <div class="preset-control-row">
+                    <label for="presetSelect">Type:</label>
+                    <select id="presetSelect" class="preset-select">
+                        <option value="ring">Ring</option>
+                        <option value="follow-spline">Follow Spline</option>
+                        <option value="cursor-trail">Cursor Trail</option>
+                        <option value="shuffle">Shuffle</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="controls-section" id="splinePropertiesSection" style="display: none;">
+                <h4>Spline Properties</h4>
+                <div class="slider-control-row">
+                    <label for="splineSpeedSlider">Speed:</label>
+                    <input type="range" id="splineSpeedSlider" min="0" max="3" step="0.1" value="0.5" class="control-slider">
+                    <span id="splineSpeedValue">0.5</span>
+                </div>
+                <div class="slider-control-row">
+                    <label for="splineScaleSlider">Scale:</label>
+                    <input type="range" id="splineScaleSlider" min="0.2" max="3" step="0.1" value="1" class="control-slider">
+                    <span id="splineScaleValue">1.0</span>
+                </div>
+                <div class="slider-control-row">
+                    <label for="splineDensitySlider">Density:</label>
+                    <input type="range" id="splineDensitySlider" min="1" max="10" step="1" value="1" class="control-slider">
+                    <span id="splineDensityValue">1</span>
+                </div>
+            </div>
+
+            <div class="controls-section" id="cursorTrailPropertiesSection" style="display: none;">
+                <h4>Cursor Trail Properties</h4>
+                <div class="slider-control-row">
+                    <label for="trailSpeedSlider">Follow Speed:</label>
+                    <input type="range" id="trailSpeedSlider" min="0.1" max="2.0" step="0.1" value="0.5" class="control-slider">
+                    <span id="trailSpeedValue">0.5</span>
+                </div>
+                <div class="slider-control-row">
+                    <label for="trailScaleSlider">Scale:</label>
+                    <input type="range" id="trailScaleSlider" min="0.2" max="3" step="0.1" value="1" class="control-slider">
+                    <span id="trailScaleValue">1.0</span>
+                </div>
+            </div>
+
+            <div class="controls-section" id="shufflePropertiesSection" style="display: none;">
+                <h4>Shuffle Properties</h4>
+                <div class="frame-control-row">
+                    <label for="seedInput">Seed:</label>
+                    <div class="seed-input-group">
+                        <button class="seed-btn" id="seedDecrementBtn">-</button>
+                        <input type="text" id="seedInput" value="0" class="seed-input" maxlength="4">
+                        <button class="seed-btn" id="seedIncrementBtn">+</button>
+                    </div>
+                </div>
+                <div class="slider-control-row">
+                    <label for="scatterPositionSlider">Scatter Position:</label>
+                    <input type="range" id="scatterPositionSlider" min="0.1" max="1.0" step="0.1" value="1.0" class="control-slider">
+                    <span id="scatterPositionValue">1.0</span>
+                </div>
+                <div class="slider-control-row">
+                    <label for="shuffleScaleSlider">Scale:</label>
+                    <input type="range" id="shuffleScaleSlider" min="0.3" max="3.0" step="0.1" value="1.0" class="control-slider">
+                    <span id="shuffleScaleValue">1.0</span>
+                </div>
+                <div class="slider-control-row">
+                    <label for="scatterScaleSlider">Scatter Scale:</label>
+                    <input type="range" id="scatterScaleSlider" min="0.0" max="3.0" step="0.1" value="1.0" class="control-slider">
+                    <span id="scatterScaleValue">1.0</span>
+                </div>
+                <div class="frame-control-row">
+                    <label for="animateToggle">Animate:</label>
+                    <div class="toggle-switch" id="animateToggle">
+                        <input type="checkbox" id="animateCheckbox" class="toggle-checkbox">
+                        <label for="animateCheckbox" class="toggle-label">
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-text">OFF</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="slider-control-row">
+                    <label for="shuffleSpeedSlider">Animation Speed:</label>
+                    <input type="range" id="shuffleSpeedSlider" min="0.1" max="2" step="0.1" value="0.8" class="control-slider">
+                    <span id="shuffleSpeedValue">0.8</span>
+                </div>
+                <div class="slider-control-row">
+                    <label for="shuffleIntervalSlider">Shuffle Interval:</label>
+                    <input type="range" id="shuffleIntervalSlider" min="1" max="10" step="0.5" value="3" class="control-slider">
+                    <span id="shuffleIntervalValue">3.0s</span>
+                </div>
+            </div>
+
+            <div class="controls-section" id="imageScaleSection">
+                <h4>Image Scale</h4>
+                <div class="slider-control-row">
+                    <label for="scaleSlider">Scale:</label>
+                    <input type="range" id="scaleSlider" min="0.5" max="6" step="0.1" value="1.5" class="control-slider">
+                    <span id="scaleValue">1.5</span>
+                </div>
+            </div>
+
+            <div class="controls-section" id="circlePropertiesSection">
+                <h4>Circle Properties</h4>
+                <div class="slider-control-row">
+                    <label for="radiusSlider">Radius:</label>
+                    <input type="range" id="radiusSlider" min="1" max="8" step="0.1" value="3" class="control-slider">
+                    <span id="radiusValue">3.0</span>
+                </div>
+                <div class="slider-control-row">
+                    <label for="heightSlider">Height:</label>
+                    <input type="range" id="heightSlider" min="-3" max="3" step="0.1" value="0" class="control-slider">
+                    <span id="heightValue">0.0</span>
+                </div>
+                <div class="slider-control-row">
+                    <label for="speedSlider">Speed:</label>
+                    <input type="range" id="speedSlider" min="0" max="2" step="0.1" value="0.5" class="control-slider">
+                    <span id="speedValue">0.5</span>
+                </div>
+                <div class="slider-control-row">
+                    <label for="rotationXSlider">X Rotation:</label>
+                    <input type="range" id="rotationXSlider" min="-180" max="180" step="1" value="0" class="control-slider">
+                    <span id="rotationXValue">0°</span>
+                </div>
+                <div class="slider-control-row">
+                    <label for="rotationZSlider">Z Rotation:</label>
+                    <input type="range" id="rotationZSlider" min="-180" max="180" step="1" value="0" class="control-slider">
+                    <span id="rotationZValue">0°</span>
+                </div>
+                <button class="control-btn" id="resetRotationBtn">Reset Rotation</button>
+            </div>
+
+            <div class="controls-section">
+                <h4>Background Color</h4>
+                <div class="color-control-row">
+                    <label for="backgroundColorPicker">Color:</label>
+                    <input type="color" id="backgroundColorPicker" value="#121212" class="color-picker">
+                </div>
+            </div>
+
+            <div class="controls-section">
+                <h4>Frame Size</h4>
+                <div class="frame-control-row">
+                    <label for="frameWidth">Width:</label>
+                    <input type="text" id="frameWidth" value="800" class="size-input">
+                    <span>px</span>
+                </div>
+                <div class="frame-control-row">
+                    <label for="frameHeight">Height:</label>
+                    <input type="text" id="frameHeight" value="600" class="size-input">
+                    <span>px</span>
+                </div>
+                <button class="control-btn" id="applySizeBtn">Apply Size</button>
+            </div>
+
+            <div class="controls-section">
+                <h4>Export Video</h4>
+                <button class="control-btn export-btn" id="exportBtn">Export MP4</button>
+            </div>
+        </div>
+        
+        <!-- Content Area -->
+        <div class="content-area">
+            <div class="frame-container" id="frameContainer">
+                <!-- Three.js canvas will be added here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html> 
