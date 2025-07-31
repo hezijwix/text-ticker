@@ -471,9 +471,16 @@ class ProjectTemplate {
     
     clearCanvas() {
         if (this.ctx2D) {
+            // Clear the canvas
             this.ctx2D.clearRect(0, 0, this.canvas2D.width, this.canvas2D.height);
-            // Set background color to match frame
-            this.ctx2D.fillStyle = this.currentBackgroundColor;
+            
+            // Ensure we're using source-over composition for maximum compatibility
+            this.ctx2D.globalCompositeOperation = 'source-over';
+            this.ctx2D.globalAlpha = 1.0;
+            
+            // Set background color to match frame (ensure it's a valid color)
+            const bgColor = this.currentBackgroundColor || '#121212';
+            this.ctx2D.fillStyle = bgColor;
             this.ctx2D.fillRect(0, 0, this.canvas2D.width, this.canvas2D.height);
         }
     }
@@ -1653,6 +1660,9 @@ class ProjectTemplate {
                     this.exportBtn.textContent = 'Export MP4';
                     return;
                 }
+                
+                // Ensure canvas is properly prepared for recording
+                this.prepareCanvasForRecording();
                 canvas = this.canvas2D;
                 stream = canvas.captureStream(30);
                 break;
@@ -1678,15 +1688,29 @@ class ProjectTemplate {
         }
         
         // Try to find the best supported format, preferring MP4
-        const supportedFormats = [
-            'video/mp4; codecs=avc1.42E01E',  // H.264 Baseline
-            'video/mp4; codecs=avc1.4D401E',  // H.264 Main
-            'video/mp4; codecs=h264',         // Generic H.264
-            'video/mp4',                      // Generic MP4
-            'video/webm; codecs=vp9',         // VP9 WebM
-            'video/webm; codecs=vp8',         // VP8 WebM
-            'video/webm'                      // Generic WebM
-        ];
+        // For follow-spline mode, prefer WebM to avoid codec compatibility issues
+        let supportedFormats;
+        if (this.currentPreset === 'follow-spline') {
+            supportedFormats = [
+                'video/webm; codecs=vp9',         // VP9 WebM (most reliable for 2D canvas)
+                'video/webm; codecs=vp8',         // VP8 WebM
+                'video/webm',                     // Generic WebM
+                'video/mp4; codecs=avc1.42E01E',  // H.264 Baseline
+                'video/mp4; codecs=avc1.4D401E',  // H.264 Main
+                'video/mp4; codecs=h264',         // Generic H.264
+                'video/mp4'                       // Generic MP4
+            ];
+        } else {
+            supportedFormats = [
+                'video/mp4; codecs=avc1.42E01E',  // H.264 Baseline
+                'video/mp4; codecs=avc1.4D401E',  // H.264 Main
+                'video/mp4; codecs=h264',         // Generic H.264
+                'video/mp4',                      // Generic MP4
+                'video/webm; codecs=vp9',         // VP9 WebM
+                'video/webm; codecs=vp8',         // VP8 WebM
+                'video/webm'                      // Generic WebM
+            ];
+        }
         
         let selectedFormat = null;
         for (const format of supportedFormats) {
@@ -1989,6 +2013,37 @@ class ProjectTemplate {
             clearInterval(this.recordingUpdateInterval);
             this.recordingUpdateInterval = null;
         }
+    }
+    
+    prepareCanvasForRecording() {
+        if (!this.canvas2D || !this.ctx2D) return;
+        
+        console.log('Preparing 2D canvas for recording...');
+        
+        // Force a specific pixel format that's compatible with video codecs
+        const imageData = this.ctx2D.getImageData(0, 0, this.canvas2D.width, this.canvas2D.height);
+        
+        // Ensure we have a solid background by redrawing it
+        this.clearCanvas();
+        
+        // If there's a spline, redraw it
+        if (this.splinePoints.length > 0) {
+            this.currentSpline = [...this.splinePoints];
+            this.drawSpline();
+        } else {
+            // If no spline, draw the placeholder
+            this.drawSplinePlaceholder();
+        }
+        
+        // Add a slight border to ensure the canvas has defined content
+        this.ctx2D.strokeStyle = 'rgba(255, 255, 255, 0.01)'; // Almost invisible border
+        this.ctx2D.lineWidth = 1;
+        this.ctx2D.strokeRect(0, 0, this.canvas2D.width, this.canvas2D.height);
+        
+        // Force canvas to be opaque (remove any transparency issues)
+        this.ctx2D.globalCompositeOperation = 'source-over';
+        
+        console.log('Canvas prepared for recording:', this.canvas2D.width + 'x' + this.canvas2D.height);
     }
     
     addLighting() {
