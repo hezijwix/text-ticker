@@ -1634,8 +1634,35 @@ class ProjectTemplate {
         const canvas = this.renderer.domElement;
         const stream = canvas.captureStream(30); // 30 fps
         
+        // Try to find the best supported format, preferring MP4
+        const supportedFormats = [
+            'video/mp4; codecs=avc1.42E01E',  // H.264 Baseline
+            'video/mp4; codecs=avc1.4D401E',  // H.264 Main
+            'video/mp4; codecs=h264',         // Generic H.264
+            'video/mp4',                      // Generic MP4
+            'video/webm; codecs=vp9',         // VP9 WebM
+            'video/webm; codecs=vp8',         // VP8 WebM
+            'video/webm'                      // Generic WebM
+        ];
+        
+        let selectedFormat = null;
+        for (const format of supportedFormats) {
+            if (MediaRecorder.isTypeSupported(format)) {
+                selectedFormat = format;
+                console.log('Selected recording format:', format);
+                break;
+            }
+        }
+        
+        if (!selectedFormat) {
+            alert('Your browser does not support video recording. Please try a different browser.');
+            this.exportBtn.disabled = false;
+            this.exportBtn.textContent = 'Export MP4';
+            return;
+        }
+        
         const mediaRecorder = new MediaRecorder(stream, {
-            mimeType: 'video/webm; codecs=vp9'
+            mimeType: selectedFormat
         });
         
         const chunks = [];
@@ -1647,8 +1674,20 @@ class ProjectTemplate {
         };
         
         mediaRecorder.onstop = () => {
-            const blob = new Blob(chunks, { type: 'video/webm' });
-            this.convertToMP4(blob);
+            const isMP4 = selectedFormat.includes('mp4');
+            const blob = new Blob(chunks, { 
+                type: isMP4 ? 'video/mp4' : 'video/webm' 
+            });
+            
+            if (isMP4) {
+                // Direct MP4 download - no conversion needed!
+                console.log('MP4 recorded natively, downloading directly');
+                this.downloadMP4(blob);
+            } else {
+                // WebM recorded, try to convert to MP4
+                console.log('WebM recorded, attempting conversion to MP4');
+                this.convertToMP4(blob);
+            }
         };
         
         mediaRecorder.start();
@@ -1663,7 +1702,7 @@ class ProjectTemplate {
         try {
             // Check if FFmpeg is available in global scope
             if (typeof window.FFmpeg === 'undefined') {
-                console.error('FFmpeg not found in global scope');
+                console.warn('FFmpeg not found in global scope - MP4 conversion will not be available');
                 this.ffmpegLoaded = false;
                 return;
             }
@@ -1678,20 +1717,30 @@ class ProjectTemplate {
             });
             
             this.ffmpeg.on('progress', ({ progress }) => {
-                console.log('FFmpeg progress:', progress);
+                console.log('FFmpeg progress:', Math.round(progress * 100) + '%');
             });
             
-            // Load FFmpeg core with proper base URL
-            await this.ffmpeg.load({
+            console.log('Loading FFmpeg core files...');
+            
+            // Load FFmpeg core with timeout
+            const loadPromise = this.ffmpeg.load({
                 coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
                 wasmURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm'
             });
             
+            // Set a 15-second timeout for loading FFmpeg
+            await Promise.race([
+                loadPromise,
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('FFmpeg loading timeout after 15 seconds')), 15000)
+                )
+            ]);
+            
             this.ffmpegLoaded = true;
-            console.log('FFmpeg loaded successfully');
+            console.log('✅ FFmpeg loaded successfully - MP4 conversion available');
         } catch (error) {
-            console.error('Failed to load FFmpeg:', error);
-            console.error('Error details:', error.message);
+            console.warn('⚠️ FFmpeg loading failed:', error.message);
+            console.log('📝 MP4 conversion will not be available, but native MP4 recording may still work');
             this.ffmpegLoaded = false;
         }
     }
@@ -1700,68 +1749,84 @@ class ProjectTemplate {
         console.log('convertToMP4 called, ffmpegLoaded:', this.ffmpegLoaded);
         
         if (!this.ffmpegLoaded) {
-            console.log('FFmpeg not loaded, falling back to WebM');
+            console.log('FFmpeg not loaded, falling back to WebM download');
+            this.exportBtn.textContent = 'Downloading WebM...';
             this.downloadWebM(webmBlob);
             return;
         }
         
         try {
-            this.exportBtn.textContent = 'Converting to MP4...';
-            console.log('Starting MP4 conversion...');
+            this.exportBtn.textContent = 'Converting to MP4... (0%)';
+            console.log('Starting WebM to MP4 conversion...');
             
             // Convert blob to array buffer
             const arrayBuffer = await webmBlob.arrayBuffer();
             const uint8Array = new Uint8Array(arrayBuffer);
-            console.log('WebM blob size:', uint8Array.length);
+            console.log('WebM blob size:', (uint8Array.length / 1024 / 1024).toFixed(2) + 'MB');
+            
+            // Update progress
+            this.exportBtn.textContent = 'Converting to MP4... (25%)';
             
             // Write input file to FFmpeg's virtual file system
             await this.ffmpeg.writeFile('input.webm', uint8Array);
             console.log('Input file written to FFmpeg filesystem');
             
+            // Update progress
+            this.exportBtn.textContent = 'Converting to MP4... (50%)';
+            
             // Convert WebM to MP4 with H.264 codec
-            console.log('Starting FFmpeg conversion...');
+            console.log('Starting FFmpeg conversion with optimized settings...');
             await this.ffmpeg.exec([
                 '-i', 'input.webm',
                 '-c:v', 'libx264',
                 '-preset', 'fast',
                 '-crf', '23',
                 '-pix_fmt', 'yuv420p',
+                '-movflags', '+faststart',  // Optimize for web playback
                 'output.mp4'
             ]);
             
             console.log('FFmpeg conversion completed');
             
+            // Update progress
+            this.exportBtn.textContent = 'Converting to MP4... (75%)';
+            
             // Read the output file
             const data = await this.ffmpeg.readFile('output.mp4');
             const mp4Blob = new Blob([data.buffer], { type: 'video/mp4' });
-            console.log('MP4 blob created, size:', mp4Blob.size);
+            console.log('MP4 blob created, size:', (mp4Blob.size / 1024 / 1024).toFixed(2) + 'MB');
             
-            // Download the MP4 file
-            const url = URL.createObjectURL(mp4Blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `gallery-animation-${Date.now()}.mp4`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            // Update progress
+            this.exportBtn.textContent = 'Downloading MP4...';
             
-            console.log('MP4 file downloaded successfully');
+            // Download the MP4 file using the dedicated function
+            this.downloadMP4(mp4Blob);
             
-            // Clean up
-            await this.ffmpeg.deleteFile('input.webm');
-            await this.ffmpeg.deleteFile('output.mp4');
+            // Clean up files from FFmpeg virtual filesystem
+            try {
+                await this.ffmpeg.deleteFile('input.webm');
+                await this.ffmpeg.deleteFile('output.mp4');
+                console.log('Temporary files cleaned up');
+            } catch (cleanupError) {
+                console.warn('Cleanup warning:', cleanupError.message);
+            }
             
         } catch (error) {
             console.error('MP4 conversion failed:', error);
-            console.error('Error stack:', error.stack);
-            alert('MP4 conversion failed: ' + error.message + '. Downloading as WebM instead.');
+            
+            // Provide specific error messages
+            let errorMessage = 'MP4 conversion failed';
+            if (error.message.includes('timeout')) {
+                errorMessage = 'Conversion timed out - the video might be too large';
+            } else if (error.message.includes('memory')) {
+                errorMessage = 'Not enough memory for conversion';
+            } else if (error.message.includes('codec')) {
+                errorMessage = 'Video codec issue during conversion';
+            }
+            
+            alert(errorMessage + '. Downloading as WebM instead.');
             this.downloadWebM(webmBlob);
         }
-        
-        // Re-enable export button
-        this.exportBtn.disabled = false;
-        this.exportBtn.textContent = 'Export MP4';
     }
     
     downloadWebM(webmBlob) {
@@ -1774,7 +1839,28 @@ class ProjectTemplate {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         
+        // Re-enable export button
+        this.exportBtn.disabled = false;
+        this.exportBtn.textContent = 'Export MP4';
+        
         alert('Video exported as WebM format. For MP4 conversion, you can use online converters or video editing software.');
+    }
+    
+    downloadMP4(mp4Blob) {
+        const url = URL.createObjectURL(mp4Blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `gallery-animation-${Date.now()}.mp4`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        // Re-enable export button
+        this.exportBtn.disabled = false;
+        this.exportBtn.textContent = 'Export MP4';
+        
+        console.log('✅ MP4 file downloaded successfully');
     }
     
     addLighting() {
@@ -2020,6 +2106,9 @@ class ProjectTemplate {
             
             // Start single animation loop
             this.animate2DImages();
+            
+            // Clear the canvas to remove the green guide line
+            this.clearCanvas();
         });
     }
     
