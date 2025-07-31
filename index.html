@@ -193,6 +193,16 @@
             </div>
 
             <div class="controls-section">
+                <h4>Preview Zoom</h4>
+                <div class="slider-control-row">
+                    <label for="zoomSlider">Zoom:</label>
+                    <input type="range" id="zoomSlider" min="0.25" max="2.0" step="0.05" value="1.0" class="slider">
+                    <span id="zoomValue" class="value">100%</span>
+                </div>
+                <button class="control-btn" id="resetZoomBtn">Reset Zoom</button>
+            </div>
+
+            <div class="controls-section">
                 <h4>Export Video</h4>
                 <button class="control-btn export-btn" id="exportBtn">Export MP4</button>
             </div>

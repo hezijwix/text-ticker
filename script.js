@@ -64,6 +64,11 @@ class ProjectTemplate {
         // Background color picker
         this.backgroundColorPicker = document.getElementById('backgroundColorPicker');
         
+        // Zoom controls
+        this.zoomSlider = document.getElementById('zoomSlider');
+        this.zoomValue = document.getElementById('zoomValue');
+        this.resetZoomBtn = document.getElementById('resetZoomBtn');
+        
         // Export button
         this.exportBtn = document.getElementById('exportBtn');
         
@@ -120,6 +125,10 @@ class ProjectTemplate {
         this.currentSpeed = 0.5; // Default rotation speed (degrees per frame)
         this.currentPreset = 'ring'; // Current gallery preset
         this.currentBackgroundColor = '#181818'; // Current background color
+        
+        // Zoom properties
+        this.currentZoom = 1.0; // Current zoom level (1.0 = 100%)
+        this.isZoomed = false; // Whether preview is zoomed
         
         // Placeholder frames
         this.placeholderPlane = null; // 3D placeholder for ring mode
@@ -388,6 +397,17 @@ class ProjectTemplate {
             this.handleExport();
         });
         
+        // Zoom controls
+        this.zoomSlider.addEventListener('input', (e) => {
+            const zoomValue = parseFloat(e.target.value);
+            this.setZoom(zoomValue);
+            this.zoomValue.textContent = Math.round(zoomValue * 100) + '%';
+        });
+        
+        this.resetZoomBtn.addEventListener('click', () => {
+            this.resetZoom();
+        });
+        
         // Handle window resize
         window.addEventListener('resize', () => {
             this.onWindowResize();
@@ -431,13 +451,11 @@ class ProjectTemplate {
         this.splineCumulativeDistances = null; // Reset distance calculations
         this.isDrawing = true;
         
-        // Get mouse position relative to canvas
-        const rect = this.frameContainer.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+        // Get mouse position with zoom consideration
+        const coords = this.getCanvasCoordinates(e);
         
         // Add first point
-        this.currentSpline.push({ x, y });
+        this.currentSpline.push({ x: coords.x, y: coords.y });
         this.clearCanvas();
         this.drawSpline();
     }
@@ -445,13 +463,11 @@ class ProjectTemplate {
     continueDrawing(e) {
         if (!this.isDrawing) return;
         
-        // Get mouse position relative to canvas
-        const rect = this.frameContainer.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+        // Get mouse position with zoom consideration
+        const coords = this.getCanvasCoordinates(e);
         
         // Add point to current spline
-        this.currentSpline.push({ x, y });
+        this.currentSpline.push({ x: coords.x, y: coords.y });
         this.drawSpline();
     }
     
@@ -875,10 +891,10 @@ class ProjectTemplate {
     trackCursor(e) {
         if (!this.isTrackingCursor || this.currentPreset !== 'cursor-trail') return;
         
-        // Get mouse position relative to canvas
-        const rect = this.frameContainer.getBoundingClientRect();
-        this.cursorPosition.x = e.clientX - rect.left;
-        this.cursorPosition.y = e.clientY - rect.top;
+        // Get mouse position with zoom consideration
+        const coords = this.getCanvasCoordinates(e);
+        this.cursorPosition.x = coords.x;
+        this.cursorPosition.y = coords.y;
     }
     
     createTrailImages() {
@@ -1608,6 +1624,51 @@ class ProjectTemplate {
             this.clearCanvas();
             this.drawSpline();
         }
+    }
+    
+    setZoom(zoomLevel) {
+        this.currentZoom = zoomLevel;
+        this.isZoomed = zoomLevel !== 1.0;
+        
+        // Apply CSS transform to the frame container
+        const transform = `scale(${zoomLevel})`;
+        this.frameContainer.style.transform = transform;
+        this.frameContainer.style.transformOrigin = 'center center';
+        
+        console.log('Zoom set to:', Math.round(zoomLevel * 100) + '%');
+    }
+    
+    resetZoom() {
+        this.setZoom(1.0);
+        this.zoomSlider.value = '1.0';
+        this.zoomValue.textContent = '100%';
+        console.log('Zoom reset to 100%');
+    }
+    
+    getCanvasCoordinates(event) {
+        // Get the frame container's bounding rect
+        const rect = this.frameContainer.getBoundingClientRect();
+        
+        // Calculate the actual frame size (before zoom transform)
+        const frameSize = this.getFrameSize();
+        
+        // Calculate the visual size after zoom transform
+        const visualWidth = frameSize.width * this.currentZoom;
+        const visualHeight = frameSize.height * this.currentZoom;
+        
+        // Calculate the offset due to centering after scaling
+        const offsetX = (rect.width - visualWidth) / 2;
+        const offsetY = (rect.height - visualHeight) / 2;
+        
+        // Get mouse position relative to the visual frame
+        const visualX = event.clientX - rect.left - offsetX;
+        const visualY = event.clientY - rect.top - offsetY;
+        
+        // Convert back to actual canvas coordinates by dividing by zoom
+        const canvasX = visualX / this.currentZoom;
+        const canvasY = visualY / this.currentZoom;
+        
+        return { x: canvasX, y: canvasY };
     }
     
     handleExport() {
