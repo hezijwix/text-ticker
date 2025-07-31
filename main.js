@@ -55,7 +55,16 @@ class GenerativeGallery {
         });
         
         this.uiController.on('backgroundColorChange', (color) => {
+            // Update Three.js scene background for 3D modes (Ring)
             this.sceneManager.setBackgroundColor(color);
+            
+            // Update frame container background for 2D/DOM-based modes
+            if (this.frameContainer) {
+                this.frameContainer.style.backgroundColor = color;
+            }
+            
+            // Store color for future canvas creation
+            this.currentBackgroundColor = color;
         });
         
         // Ring gallery specific callbacks

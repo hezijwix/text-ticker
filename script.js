@@ -119,6 +119,7 @@ class ProjectTemplate {
         this.currentScale = 1.5; // Default scale for images
         this.currentSpeed = 0.5; // Default rotation speed (degrees per frame)
         this.currentPreset = 'ring'; // Current gallery preset
+        this.currentBackgroundColor = '#181818'; // Current background color
         
         // Placeholder frames
         this.placeholderPlane = null; // 3D placeholder for ring mode
@@ -472,7 +473,7 @@ class ProjectTemplate {
         if (this.ctx2D) {
             this.ctx2D.clearRect(0, 0, this.canvas2D.width, this.canvas2D.height);
             // Set background color to match frame
-            this.ctx2D.fillStyle = '#181818';
+            this.ctx2D.fillStyle = this.currentBackgroundColor;
             this.ctx2D.fillRect(0, 0, this.canvas2D.width, this.canvas2D.height);
         }
     }
@@ -1581,6 +1582,9 @@ class ProjectTemplate {
     }
     
     setBackgroundColor(color) {
+        // Store the color for canvas operations
+        this.currentBackgroundColor = color;
+        
         if (this.scene) {
             this.scene.background = new THREE.Color(color);
         }
@@ -1588,6 +1592,14 @@ class ProjectTemplate {
         // Also set the frame container background for modes that don't use Three.js (like shuffle mode)
         if (this.frameContainer) {
             this.frameContainer.style.backgroundColor = color;
+            // Use !important to override CSS rule
+            this.frameContainer.style.setProperty('background-color', color, 'important');
+        }
+        
+        // If we have a 2D canvas (for spline mode), update its background
+        if (this.canvas2D && this.currentPreset === 'follow-spline') {
+            this.clearCanvas();
+            this.drawSpline();
         }
     }
     
