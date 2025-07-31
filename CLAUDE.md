@@ -10,33 +10,26 @@ This is a generative gallery application with four distinct display modes: Ring 
 
 This is a vanilla JavaScript project with no build system. Development is done by:
 - Opening `index.html` in a browser or using a local server
-- No package.json exists - the project uses CDN dependencies (Three.js)
+- No package.json exists - the project uses CDN dependencies (Three.js, FFmpeg.js)
 - No build, test, or lint commands are available
 
 ## Architecture
 
-The application follows a modular architecture with clear separation of concerns:
+The application uses a single-file architecture for simplicity:
 
-### Core Entry Points
+### Core Files
 - `index.html` - Main HTML structure with extensive UI controls
-- `main.js` - Modern ES6 module entry point with proper imports
-- `script.js` - Legacy monolithic implementation (appears to be backup)
+- `script.js` - Complete implementation of all gallery modes and functionality
+- `style.css` - All styling and responsive design
 
-### Manager Classes (managers/)
-- `SceneManager.js` - Three.js scene, camera, renderer management
-- `ImageManager.js` - Image upload, storage, and lifecycle management  
-- `UIController.js` - UI controls and event handling
-
-### Gallery Modes (galleries/)
-- `RingGallery.js` - 3D circular gallery using Three.js
-- Additional gallery modes may be implemented as separate classes
-
-### Application Flow
-1. `GenerativeGallery` class initializes all managers and galleries
-2. `ImageManager` handles image upload and provides callbacks
-3. `UIController` manages control panels and mode switching
-4. `SceneManager` provides Three.js rendering infrastructure
-5. Gallery classes implement specific display modes
+### Application Structure in script.js
+The `ProjectTemplate` class contains all functionality:
+- Three.js scene management for Ring mode
+- 2D Canvas handling for Spline mode  
+- DOM manipulation for Cursor Trail and Shuffle modes
+- Image upload and management
+- UI control event handling
+- Export functionality with FFmpeg integration
 
 ## Key Features
 
@@ -54,46 +47,48 @@ Each mode has specific control panels that show/hide based on selection:
 - Shuffle: seed, scatter controls, animation toggle
 
 ### Technical Implementation
-- **Three.js**: WebGL rendering for 3D modes
-- **HTML5 Canvas**: 2D drawing and interactions
-- **Modular ES6**: Clean separation with import/export
-- **Event-driven**: Callback system between managers
+- **Three.js**: WebGL rendering for 3D Ring mode
+- **HTML5 Canvas**: 2D drawing for Spline mode
+- **DOM Elements**: Direct manipulation for Trail and Shuffle modes
+- **Event-driven**: All interactions handled through event listeners
 
 ## Development Notes
 
-### File Structure
-- Use ES6 modules with proper imports/exports
-- Manager classes handle specific responsibilities
-- Gallery classes implement display modes
-- Utils directory exists but may be empty
+### Code Organization
+The script.js file is organized into logical sections:
+- Constructor and initialization
+- Gallery mode implementations
+- UI control handlers
+- Utility functions
+- Export functionality
 
 ### Code Style
-- ES6 class syntax throughout
-- Clear separation of concerns
-- Event-driven architecture with callbacks
+- ES6 class syntax
+- Clear method naming
+- Comprehensive comments
 - Three.js follows standard patterns
 
 ### Testing
 - No automated testing framework
 - Manual testing via browser
-- Use browser dev tools for debugging Three.js scenes
+- Use browser dev tools for debugging
 
 ## Common Tasks
 
 ### Adding New Gallery Mode
-1. Create new class in `galleries/` directory
-2. Implement required methods (init, addImage, removeImage, etc.)
-3. Add controls to `index.html`
-4. Update `UIController.js` for new controls
-5. Register in `GenerativeGallery` class
+1. Add new mode methods to `ProjectTemplate` class
+2. Add controls to `index.html`
+3. Add control handlers in script.js
+4. Update mode switching logic
+5. Add mode-specific rendering logic
 
 ### Modifying Existing Mode
-- Gallery-specific code is in `galleries/` directory
-- UI controls are in `index.html` with IDs matching mode names
-- Control handling is in `UIController.js`
+- Find the mode's methods in script.js (e.g., `showRingGallery`, `showSplineGallery`)
+- UI controls are in `index.html` with descriptive IDs
+- Control handlers are in the constructor's event listener section
 
-### Working with Three.js
-- Scene setup is handled by `SceneManager`
-- Gallery classes receive scene reference
+### Working with Three.js (Ring Mode)
+- Scene setup is in the constructor
+- Ring-specific code is in `createCircularPath` and related methods
 - Follow Three.js best practices for memory management
 - Use `requestAnimationFrame` for smooth animations
