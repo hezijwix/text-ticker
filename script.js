@@ -1714,17 +1714,14 @@ class ProjectTemplate {
                 break;
                 
             case 'follow-spline':
-                // Spline mode uses 2D canvas
-                if (!this.canvas2D) {
-                    alert('2D canvas not ready for recording');
+                // Spline mode needs to capture both canvas spline AND HTML image elements
+                canvas = this.createSplineRecordingCanvas();
+                if (!canvas) {
+                    alert('Unable to create recording canvas for follow spline mode');
                     this.exportBtn.disabled = false;
                     this.exportBtn.textContent = 'Export MP4';
                     return;
                 }
-                
-                // Ensure canvas is properly prepared for recording
-                this.prepareCanvasForRecording();
-                canvas = this.canvas2D;
                 stream = canvas.captureStream(30);
                 break;
                 
@@ -1788,9 +1785,11 @@ class ProjectTemplate {
         };
         
         mediaRecorder.onstop = () => {
-            // Clean up frame container recording if it was used
+            // Clean up recording intervals based on mode
             if (this.currentPreset === 'cursor-trail' || this.currentPreset === 'shuffle') {
                 this.stopFrameContainerRecording();
+            } else if (this.currentPreset === 'follow-spline') {
+                this.stopSplineRecording();
             }
             
             const isMP4 = selectedFormat.includes('mp4');
@@ -2088,6 +2087,154 @@ class ProjectTemplate {
             clearInterval(this.recordingUpdateInterval);
             this.recordingUpdateInterval = null;
         }
+    }
+    
+    createSplineRecordingCanvas() {
+        try {
+            // Create a canvas to capture spline + animated images
+            const recordingCanvas = document.createElement('canvas');
+            const ctx = recordingCanvas.getContext('2d');
+            
+            // Get frameContainer dimensions
+            const containerRect = this.frameContainer.getBoundingClientRect();
+            recordingCanvas.width = containerRect.width;
+            recordingCanvas.height = containerRect.height;
+            
+            console.log('Created spline recording canvas:', recordingCanvas.width + 'x' + recordingCanvas.height);
+            
+            // Create a function to continuously update this canvas
+            const updateCanvas = () => {
+                // Clear canvas
+                ctx.clearRect(0, 0, recordingCanvas.width, recordingCanvas.height);
+                
+                // Fill background color
+                const bgColorPicker = document.getElementById('backgroundColorPicker');
+                const bgColor = bgColorPicker ? bgColorPicker.value : '#121212';
+                ctx.fillStyle = bgColor;
+                ctx.fillRect(0, 0, recordingCanvas.width, recordingCanvas.height);
+                
+                // Draw the spline line from the original 2D canvas
+                if (this.canvas2D && this.currentSpline && this.currentSpline.length > 1) {
+                    this.drawSplineOnRecordingCanvas(ctx);
+                } else if (this.splinePoints && this.splinePoints.length > 1) {
+                    // Fallback to splinePoints if currentSpline is not available
+                    this.drawSplineFromPoints(ctx, this.splinePoints);
+                } else {
+                    // Draw placeholder if no spline exists
+                    this.drawSplinePlaceholderOnCanvas(ctx);
+                }
+                
+                // Draw all animated image elements
+                this.drawSplineImagesOnCanvas(ctx, containerRect);
+            };
+            
+            // Start continuous updates for recording
+            this.splineRecordingUpdateInterval = setInterval(updateCanvas, 1000/30); // 30 FPS
+            
+            // Initial update
+            updateCanvas();
+            
+            return recordingCanvas;
+            
+        } catch (error) {
+            console.error('Failed to create spline recording canvas:', error);
+            return null;
+        }
+    }
+    
+    drawSplineOnRecordingCanvas(ctx) {
+        if (!this.currentSpline || this.currentSpline.length < 2) return;
+        
+        // Draw the spline line
+        ctx.strokeStyle = '#00ff88';
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
+        ctx.beginPath();
+        ctx.moveTo(this.currentSpline[0].x, this.currentSpline[0].y);
+        
+        // Draw smooth curve through points
+        for (let i = 1; i < this.currentSpline.length; i++) {
+            ctx.lineTo(this.currentSpline[i].x, this.currentSpline[i].y);
+        }
+        
+        ctx.stroke();
+    }
+    
+    drawSplineImagesOnCanvas(ctx, containerRect) {
+        // Get all image elements for spline mode
+        const images = this.imageElements2D;
+        
+        images.forEach(img => {
+            if (img.style.display === 'none') return;
+            
+            try {
+                // Get image position and size
+                const imgRect = img.getBoundingClientRect();
+                
+                // Calculate relative position within frameContainer
+                const x = imgRect.left - containerRect.left;
+                const y = imgRect.top - containerRect.top;
+                const width = imgRect.width;
+                const height = imgRect.height;
+                
+                // Only draw if image is within container bounds
+                if (x < containerRect.width && y < containerRect.height && 
+                    x + width > 0 && y + height > 0) {
+                    
+                    // Draw the image
+                    ctx.drawImage(img, x, y, width, height);
+                }
+            } catch (drawError) {
+                // Skip images that can't be drawn (might not be loaded yet)
+                console.warn('Could not draw spline image to canvas:', drawError.message);
+            }
+        });
+    }
+    
+    stopSplineRecording() {
+        if (this.splineRecordingUpdateInterval) {
+            clearInterval(this.splineRecordingUpdateInterval);
+            this.splineRecordingUpdateInterval = null;
+        }
+    }
+    
+    drawSplineFromPoints(ctx, points) {
+        if (!points || points.length < 2) return;
+        
+        // Draw the spline line
+        ctx.strokeStyle = '#00ff88';
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        
+        // Draw smooth curve through points
+        for (let i = 1; i < points.length; i++) {
+            ctx.lineTo(points[i].x, points[i].y);
+        }
+        
+        ctx.stroke();
+    }
+    
+    drawSplinePlaceholderOnCanvas(ctx) {
+        // Draw centered text instruction
+        const canvasWidth = ctx.canvas.width;
+        const canvasHeight = ctx.canvas.height;
+        const centerX = canvasWidth / 2;
+        const centerY = canvasHeight / 2;
+        
+        // Set text properties
+        ctx.font = '16px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        ctx.fillStyle = '#888888';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        // Draw the instruction text
+        ctx.fillText('Draw a spline', centerX, centerY);
     }
     
     prepareCanvasForRecording() {
