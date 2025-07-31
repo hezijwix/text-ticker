@@ -987,8 +987,6 @@ class ProjectTemplate {
         img.style.position = 'absolute';
         img.style.pointerEvents = 'none';
         img.style.zIndex = (1000 - index).toString(); // First image (index 0) has highest z-index
-        img.style.borderRadius = '4px';
-        img.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
         img.style.transition = 'none'; // No CSS transitions, we'll animate manually
         
         // Set initial position off-screen
@@ -2672,8 +2670,6 @@ class ProjectTemplate {
         img.style.position = 'absolute';
         img.style.pointerEvents = 'none';
         img.style.zIndex = '10';
-        img.style.borderRadius = '4px';
-        img.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
         
         // Set initial size (we'll scale based on splineImageScale)
         img.onload = () => {
