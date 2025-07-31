@@ -14,6 +14,7 @@
 <body>
     <!-- Header -->
     <div class="header">
+        <div class="header-title">SV Generative Gallery V0.1</div>
         <div class="header-credit">MADE BY STUDIO-VIDEO</div>
     </div>
 
@@ -21,6 +22,13 @@
     <div class="main-container">
         <!-- Side Panel -->
         <div class="side-panel">
+            <div class="panel-header">
+                <h3>Controls</h3>
+                <button class="help-icon" id="helpIcon" title="Help & Instructions">
+                    <span class="help-icon-text">?</span>
+                </button>
+            </div>
+            
             <div class="controls-section">
                 <h4>Gallery Images</h4>
                 <div class="image-upload-container">
@@ -212,6 +220,121 @@
         <div class="content-area">
             <div class="frame-container" id="frameContainer">
                 <!-- Three.js canvas will be added here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div class="modal-overlay" id="helpModal">
+        <div class="modal-content help-modal">
+            <div class="modal-header">
+                <h3>How to Use SV Generative Gallery</h3>
+                <button class="modal-close" id="closeHelpModal">&times;</button>
+            </div>
+            
+            <div class="modal-body help-content">
+                <div class="help-section">
+                    <h4>🖼️ Getting Started</h4>
+                    <ol>
+                        <li><strong>Add Images:</strong> Click the "+" button or drag & drop images into the upload area</li>
+                        <li><strong>Choose a Mode:</strong> Select from Ring, Follow Spline, Cursor Trail, or Shuffle</li>
+                        <li><strong>Customize:</strong> Adjust settings like speed, size, and background color</li>
+                        <li><strong>Export:</strong> Click "Export MP4" to record and download your gallery animation</li>
+                    </ol>
+                </div>
+                
+                <div class="help-section">
+                    <h4>🎭 Gallery Modes</h4>
+                    <div class="mode-info">
+                        <p><strong>Ring:</strong> 3D circular gallery that rotates your images in space</p>
+                        <p><strong>Follow Spline:</strong> Draw a custom path - images will follow your line</p>
+                        <p><strong>Cursor Trail:</strong> Images follow your mouse cursor around the screen</p>
+                        <p><strong>Shuffle:</strong> Animated positioning with smooth transitions between images</p>
+                    </div>
+                </div>
+                
+                <div class="help-section">
+                    <h4>🎨 Customization</h4>
+                    <ul>
+                        <li><strong>Animation Speed:</strong> Control how fast your gallery animates</li>
+                        <li><strong>Image Size:</strong> Adjust the scale of your images (20-200%)</li>
+                        <li><strong>Background Color:</strong> Pick any color for your gallery background</li>
+                        <li><strong>Preview Zoom:</strong> Zoom in/out to get a better view while designing</li>
+                    </ul>
+                </div>
+                
+                <div class="help-section">
+                    <h4>🎬 Video Export</h4>
+                    <ul>
+                        <li><strong>Duration:</strong> Set recording time (1-60 seconds)</li>
+                        <li><strong>Format:</strong> Choose Auto (MP4 preferred), Force MP4, or WebM</li>
+                        <li><strong>Resolution:</strong> Always exports at original resolution, regardless of zoom</li>
+                        <li><strong>Compatibility:</strong> MP4 works best for sharing and editing</li>
+                    </ul>
+                </div>
+                
+                <div class="help-section">
+                    <h4>💡 Tips & Tricks</h4>
+                    <ul>
+                        <li>For <strong>Follow Spline</strong>: Click and drag to draw your path, images will animate along it</li>
+                        <li>Use <strong>Preview Zoom</strong> to fine-tune details without affecting export quality</li>
+                        <li>Try different <strong>speeds</strong> for each mode - some work better fast, others slow</li>
+                        <li>Export multiple versions with different settings to find your perfect look</li>
+                        <li><strong>Shuffle mode</strong> works great with many images for dynamic galleries</li>
+                    </ul>
+                </div>
+                
+                <div class="help-section">
+                    <h4>⚠️ Troubleshooting</h4>
+                    <ul>
+                        <li><strong>Video export fails:</strong> Try WebM format or reduce duration</li>
+                        <li><strong>Images not showing:</strong> Ensure files are valid image formats (JPG, PNG, GIF)</li>
+                        <li><strong>Performance issues:</strong> Try fewer images or smaller image sizes</li>
+                        <li><strong>Browser compatibility:</strong> Works best in Chrome, Firefox, Safari, and Edge</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button class="modal-btn modal-btn-primary" id="closeHelpBtn">Got It!</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div class="modal-overlay" id="exportModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Export Video</h3>
+                <button class="modal-close" id="closeExportModal">&times;</button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="modal-section">
+                    <label for="exportDuration" class="modal-label">Duration (seconds)</label>
+                    <input type="number" id="exportDuration" class="modal-input" min="1" max="60" value="5">
+                    <span class="modal-hint">1-60 seconds</span>
+                </div>
+                
+                <div class="modal-section">
+                    <label for="exportFormat" class="modal-label">Format</label>
+                    <select id="exportFormat" class="modal-select">
+                        <option value="auto">Auto (MP4 preferred)</option>
+                        <option value="mp4">Force MP4</option>
+                        <option value="webm">WebM</option>
+                    </select>
+                    <span class="modal-hint">Auto works best for compatibility</span>
+                </div>
+                
+                <div class="modal-section">
+                    <label class="modal-label">Current Mode: <span id="currentModeDisplay">Ring</span></label>
+                    <span class="modal-hint">Switch modes above to change what gets recorded</span>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button class="modal-btn modal-btn-secondary" id="cancelExport">Cancel</button>
+                <button class="modal-btn modal-btn-primary" id="startExport">Start Recording</button>
             </div>
         </div>
     </div>

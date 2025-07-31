@@ -72,6 +72,21 @@ class ProjectTemplate {
         // Export button
         this.exportBtn = document.getElementById('exportBtn');
         
+        // Export modal elements
+        this.exportModal = document.getElementById('exportModal');
+        this.closeExportModal = document.getElementById('closeExportModal');
+        this.cancelExport = document.getElementById('cancelExport');
+        this.startExport = document.getElementById('startExport');
+        this.exportDuration = document.getElementById('exportDuration');
+        this.exportFormat = document.getElementById('exportFormat');
+        this.currentModeDisplay = document.getElementById('currentModeDisplay');
+        
+        // Help modal elements
+        this.helpIcon = document.getElementById('helpIcon');
+        this.helpModal = document.getElementById('helpModal');
+        this.closeHelpModal = document.getElementById('closeHelpModal');
+        this.closeHelpBtn = document.getElementById('closeHelpBtn');
+        
         // FFmpeg instance for video conversion
         this.ffmpeg = null;
         this.ffmpegLoaded = false;
@@ -129,6 +144,9 @@ class ProjectTemplate {
         // Zoom properties
         this.currentZoom = 1.0; // Current zoom level (1.0 = 100%)
         this.isZoomed = false; // Whether preview is zoomed
+        
+        // Export properties
+        this.preferredExportFormat = 'auto'; // Default export format preference
         
         // Placeholder frames
         this.placeholderPlane = null; // 3D placeholder for ring mode
@@ -406,6 +424,57 @@ class ProjectTemplate {
         
         this.resetZoomBtn.addEventListener('click', () => {
             this.resetZoom();
+        });
+        
+        // Export modal event listeners
+        this.closeExportModal.addEventListener('click', () => {
+            this.hideExportModal();
+        });
+        
+        this.cancelExport.addEventListener('click', () => {
+            this.hideExportModal();
+        });
+        
+        this.startExport.addEventListener('click', () => {
+            this.handleModalExport();
+        });
+        
+        // Close modal when clicking outside
+        this.exportModal.addEventListener('click', (e) => {
+            if (e.target === this.exportModal) {
+                this.hideExportModal();
+            }
+        });
+        
+        // Help modal event listeners
+        this.helpIcon.addEventListener('click', () => {
+            this.showHelpModal();
+        });
+        
+        this.closeHelpModal.addEventListener('click', () => {
+            this.hideHelpModal();
+        });
+        
+        this.closeHelpBtn.addEventListener('click', () => {
+            this.hideHelpModal();
+        });
+        
+        // Close help modal when clicking outside
+        this.helpModal.addEventListener('click', (e) => {
+            if (e.target === this.helpModal) {
+                this.hideHelpModal();
+            }
+        });
+        
+        // Close modals with Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                if (this.exportModal.classList.contains('show')) {
+                    this.hideExportModal();
+                } else if (this.helpModal.classList.contains('show')) {
+                    this.hideHelpModal();
+                }
+            }
         });
         
         // Handle window resize
@@ -1672,21 +1741,60 @@ class ProjectTemplate {
     }
     
     handleExport() {
-        // Ask user for duration
-        const duration = prompt('Enter video duration in seconds (1-60):', '5');
+        this.showExportModal();
+    }
+    
+    showExportModal() {
+        // Update current mode display
+        const modeNames = {
+            'ring': 'Ring',
+            'follow-spline': 'Follow Spline',
+            'cursor-trail': 'Cursor Trail',
+            'shuffle': 'Shuffle'
+        };
+        this.currentModeDisplay.textContent = modeNames[this.currentPreset] || this.currentPreset;
         
-        if (!duration || isNaN(duration)) {
-            alert('Please enter a valid number.');
-            return;
-        }
+        // Show modal with animation
+        this.exportModal.classList.add('show');
         
-        const durationNum = parseFloat(duration);
-        if (durationNum < 1 || durationNum > 60) {
+        // Focus on duration input
+        setTimeout(() => {
+            this.exportDuration.focus();
+            this.exportDuration.select();
+        }, 100);
+    }
+    
+    hideExportModal() {
+        this.exportModal.classList.remove('show');
+    }
+    
+    showHelpModal() {
+        this.helpModal.classList.add('show');
+    }
+    
+    hideHelpModal() {
+        this.helpModal.classList.remove('show');
+    }
+    
+    handleModalExport() {
+        const duration = parseFloat(this.exportDuration.value);
+        const format = this.exportFormat.value;
+        
+        // Validate duration
+        if (isNaN(duration) || duration < 1 || duration > 60) {
             alert('Duration must be between 1 and 60 seconds.');
+            this.exportDuration.focus();
             return;
         }
         
-        this.startVideoRecording(durationNum);
+        // Hide modal
+        this.hideExportModal();
+        
+        // Store format preference for this session
+        this.preferredExportFormat = format;
+        
+        // Start recording
+        this.startVideoRecording(duration);
     }
     
     startVideoRecording(duration) {
@@ -1745,16 +1853,42 @@ class ProjectTemplate {
                 return;
         }
         
-        // Try to find the best supported format, preferring MP4 for all modes
-        const supportedFormats = [
-            'video/mp4; codecs=avc1.42E01E',  // H.264 Baseline
-            'video/mp4; codecs=avc1.4D401E',  // H.264 Main
-            'video/mp4; codecs=h264',         // Generic H.264
-            'video/mp4',                      // Generic MP4
-            'video/webm; codecs=vp9',         // VP9 WebM (fallback)
-            'video/webm; codecs=vp8',         // VP8 WebM (fallback)
-            'video/webm'                      // Generic WebM (fallback)
-        ];
+        // Determine format based on user preference from modal
+        let supportedFormats = [];
+        
+        switch (this.preferredExportFormat) {
+            case 'mp4':
+                // Force MP4 only
+                supportedFormats = [
+                    'video/mp4; codecs=avc1.42E01E',
+                    'video/mp4; codecs=avc1.4D401E',
+                    'video/mp4; codecs=h264',
+                    'video/mp4'
+                ];
+                break;
+                
+            case 'webm':
+                // Force WebM only
+                supportedFormats = [
+                    'video/webm; codecs=vp9',
+                    'video/webm; codecs=vp8',
+                    'video/webm'
+                ];
+                break;
+                
+            default: // 'auto'
+                // Prefer MP4, fallback to WebM
+                supportedFormats = [
+                    'video/mp4; codecs=avc1.42E01E',
+                    'video/mp4; codecs=avc1.4D401E',
+                    'video/mp4; codecs=h264',
+                    'video/mp4',
+                    'video/webm; codecs=vp9',
+                    'video/webm; codecs=vp8',
+                    'video/webm'
+                ];
+                break;
+        }
         
         let selectedFormat = null;
         for (const format of supportedFormats) {
@@ -2015,12 +2149,12 @@ class ProjectTemplate {
             const recordingCanvas = document.createElement('canvas');
             const ctx = recordingCanvas.getContext('2d');
             
-            // Get frameContainer dimensions
-            const containerRect = this.frameContainer.getBoundingClientRect();
-            recordingCanvas.width = containerRect.width;
-            recordingCanvas.height = containerRect.height;
+            // Use actual frame size, not visual zoomed size
+            const frameSize = this.getFrameSize();
+            recordingCanvas.width = frameSize.width;
+            recordingCanvas.height = frameSize.height;
             
-            console.log('Created recording canvas:', recordingCanvas.width + 'x' + recordingCanvas.height);
+            console.log('Created recording canvas at original resolution:', recordingCanvas.width + 'x' + recordingCanvas.height);
             
             // Create a function to continuously update this canvas
             const updateCanvas = () => {
@@ -2033,8 +2167,8 @@ class ProjectTemplate {
                 ctx.fillStyle = bgColor;
                 ctx.fillRect(0, 0, recordingCanvas.width, recordingCanvas.height);
                 
-                // Draw all image elements within frameContainer
-                this.drawImagesOnCanvas(ctx, containerRect);
+                // Draw all image elements at original resolution
+                this.drawImagesOnCanvas(ctx, frameSize);
             };
             
             // Start continuous updates for recording
@@ -2051,7 +2185,7 @@ class ProjectTemplate {
         }
     }
     
-    drawImagesOnCanvas(ctx, containerRect) {
+    drawImagesOnCanvas(ctx, frameSize) {
         // Get all image elements within frameContainer
         const images = this.frameContainer.querySelectorAll('img');
         
@@ -2059,21 +2193,29 @@ class ProjectTemplate {
             if (img.style.display === 'none') return;
             
             try {
-                // Get image position and size
+                // Get actual element position and size without zoom transformation
                 const imgRect = img.getBoundingClientRect();
+                const containerRect = this.frameContainer.getBoundingClientRect();
                 
-                // Calculate relative position within frameContainer
-                const x = imgRect.left - containerRect.left;
-                const y = imgRect.top - containerRect.top;
-                const width = imgRect.width;
-                const height = imgRect.height;
+                // Calculate visual position relative to container
+                const visualX = imgRect.left - containerRect.left;
+                const visualY = imgRect.top - containerRect.top;
+                const visualWidth = imgRect.width;
+                const visualHeight = imgRect.height;
                 
-                // Only draw if image is within container bounds
-                if (x < containerRect.width && y < containerRect.height && 
-                    x + width > 0 && y + height > 0) {
+                // Convert from visual coordinates to actual content coordinates
+                // Reverse the zoom transformation to get original coordinates
+                const actualX = visualX / this.currentZoom;
+                const actualY = visualY / this.currentZoom;
+                const actualWidth = visualWidth / this.currentZoom;
+                const actualHeight = visualHeight / this.currentZoom;
+                
+                // Only draw if image is within frame bounds
+                if (actualX < frameSize.width && actualY < frameSize.height && 
+                    actualX + actualWidth > 0 && actualY + actualHeight > 0) {
                     
-                    // Draw the image
-                    ctx.drawImage(img, x, y, width, height);
+                    // Draw the image at actual resolution
+                    ctx.drawImage(img, actualX, actualY, actualWidth, actualHeight);
                 }
             } catch (drawError) {
                 // Skip images that can't be drawn (might not be loaded yet)
@@ -2095,12 +2237,12 @@ class ProjectTemplate {
             const recordingCanvas = document.createElement('canvas');
             const ctx = recordingCanvas.getContext('2d');
             
-            // Get frameContainer dimensions
-            const containerRect = this.frameContainer.getBoundingClientRect();
-            recordingCanvas.width = containerRect.width;
-            recordingCanvas.height = containerRect.height;
+            // Use actual frame size, not visual zoomed size
+            const frameSize = this.getFrameSize();
+            recordingCanvas.width = frameSize.width;
+            recordingCanvas.height = frameSize.height;
             
-            console.log('Created spline recording canvas:', recordingCanvas.width + 'x' + recordingCanvas.height);
+            console.log('Created spline recording canvas at original resolution:', recordingCanvas.width + 'x' + recordingCanvas.height);
             
             // Create a function to continuously update this canvas
             const updateCanvas = () => {
@@ -2113,19 +2255,18 @@ class ProjectTemplate {
                 ctx.fillStyle = bgColor;
                 ctx.fillRect(0, 0, recordingCanvas.width, recordingCanvas.height);
                 
-                // Draw the spline line from the original 2D canvas
-                if (this.canvas2D && this.currentSpline && this.currentSpline.length > 1) {
-                    this.drawSplineOnRecordingCanvas(ctx);
-                } else if (this.splinePoints && this.splinePoints.length > 1) {
-                    // Fallback to splinePoints if currentSpline is not available
-                    this.drawSplineFromPoints(ctx, this.splinePoints);
-                } else {
-                    // Draw placeholder if no spline exists
+                // Note: We don't draw the spline line in the recording - only the animated images
+                // The green guide line is only for editing, not for the final video output
+                
+                // Only draw placeholder if no spline exists and no images
+                if ((!this.currentSpline || this.currentSpline.length < 2) && 
+                    (!this.splinePoints || this.splinePoints.length < 2) && 
+                    this.imageElements2D.length === 0) {
                     this.drawSplinePlaceholderOnCanvas(ctx);
                 }
                 
-                // Draw all animated image elements
-                this.drawSplineImagesOnCanvas(ctx, containerRect);
+                // Draw all animated image elements at original resolution
+                this.drawSplineImagesOnCanvas(ctx, frameSize);
             };
             
             // Start continuous updates for recording
@@ -2162,7 +2303,7 @@ class ProjectTemplate {
         ctx.stroke();
     }
     
-    drawSplineImagesOnCanvas(ctx, containerRect) {
+    drawSplineImagesOnCanvas(ctx, frameSize) {
         // Get all image elements for spline mode
         const images = this.imageElements2D;
         
@@ -2170,21 +2311,29 @@ class ProjectTemplate {
             if (img.style.display === 'none') return;
             
             try {
-                // Get image position and size
+                // Get actual element position and size without zoom transformation
                 const imgRect = img.getBoundingClientRect();
+                const containerRect = this.frameContainer.getBoundingClientRect();
                 
-                // Calculate relative position within frameContainer
-                const x = imgRect.left - containerRect.left;
-                const y = imgRect.top - containerRect.top;
-                const width = imgRect.width;
-                const height = imgRect.height;
+                // Calculate visual position relative to container
+                const visualX = imgRect.left - containerRect.left;
+                const visualY = imgRect.top - containerRect.top;
+                const visualWidth = imgRect.width;
+                const visualHeight = imgRect.height;
                 
-                // Only draw if image is within container bounds
-                if (x < containerRect.width && y < containerRect.height && 
-                    x + width > 0 && y + height > 0) {
+                // Convert from visual coordinates to actual content coordinates
+                // Reverse the zoom transformation to get original coordinates
+                const actualX = visualX / this.currentZoom;
+                const actualY = visualY / this.currentZoom;
+                const actualWidth = visualWidth / this.currentZoom;
+                const actualHeight = visualHeight / this.currentZoom;
+                
+                // Only draw if image is within frame bounds
+                if (actualX < frameSize.width && actualY < frameSize.height && 
+                    actualX + actualWidth > 0 && actualY + actualHeight > 0) {
                     
-                    // Draw the image
-                    ctx.drawImage(img, x, y, width, height);
+                    // Draw the image at actual resolution
+                    ctx.drawImage(img, actualX, actualY, actualWidth, actualHeight);
                 }
             } catch (drawError) {
                 // Skip images that can't be drawn (might not be loaded yet)
