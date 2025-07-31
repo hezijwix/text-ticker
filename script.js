@@ -1622,17 +1622,60 @@ class ProjectTemplate {
     }
     
     startVideoRecording(duration) {
-        if (!this.renderer || !this.renderer.domElement) {
-            alert('Canvas not ready for recording');
-            return;
-        }
-        
         // Disable export button during recording
         this.exportBtn.disabled = true;
         this.exportBtn.textContent = 'Recording...';
         
-        const canvas = this.renderer.domElement;
-        const stream = canvas.captureStream(30); // 30 fps
+        // Determine which canvas/element to capture based on current mode
+        let canvas = null;
+        let stream = null;
+        
+        console.log('Starting video recording for mode:', this.currentPreset);
+        
+        switch (this.currentPreset) {
+            case 'ring':
+                // Ring mode uses Three.js renderer
+                if (!this.renderer || !this.renderer.domElement) {
+                    alert('Three.js canvas not ready for recording');
+                    this.exportBtn.disabled = false;
+                    this.exportBtn.textContent = 'Export MP4';
+                    return;
+                }
+                canvas = this.renderer.domElement;
+                stream = canvas.captureStream(30);
+                break;
+                
+            case 'follow-spline':
+                // Spline mode uses 2D canvas
+                if (!this.canvas2D) {
+                    alert('2D canvas not ready for recording');
+                    this.exportBtn.disabled = false;
+                    this.exportBtn.textContent = 'Export MP4';
+                    return;
+                }
+                canvas = this.canvas2D;
+                stream = canvas.captureStream(30);
+                break;
+                
+            case 'cursor-trail':
+            case 'shuffle':
+                // These modes use HTML elements - need to capture frameContainer
+                canvas = this.createFrameContainerCanvas();
+                if (!canvas) {
+                    alert('Unable to create canvas for recording HTML content');
+                    this.exportBtn.disabled = false;
+                    this.exportBtn.textContent = 'Export MP4';
+                    return;
+                }
+                stream = canvas.captureStream(30);
+                break;
+                
+            default:
+                alert('Unknown gallery mode for recording');
+                this.exportBtn.disabled = false;
+                this.exportBtn.textContent = 'Export MP4';
+                return;
+        }
         
         // Try to find the best supported format, preferring MP4
         const supportedFormats = [
@@ -1674,6 +1717,11 @@ class ProjectTemplate {
         };
         
         mediaRecorder.onstop = () => {
+            // Clean up frame container recording if it was used
+            if (this.currentPreset === 'cursor-trail' || this.currentPreset === 'shuffle') {
+                this.stopFrameContainerRecording();
+            }
+            
             const isMP4 = selectedFormat.includes('mp4');
             const blob = new Blob(chunks, { 
                 type: isMP4 ? 'video/mp4' : 'video/webm' 
@@ -1861,6 +1909,86 @@ class ProjectTemplate {
         this.exportBtn.textContent = 'Export MP4';
         
         console.log('✅ MP4 file downloaded successfully');
+    }
+    
+    createFrameContainerCanvas() {
+        try {
+            // Create a canvas to capture HTML elements
+            const recordingCanvas = document.createElement('canvas');
+            const ctx = recordingCanvas.getContext('2d');
+            
+            // Get frameContainer dimensions
+            const containerRect = this.frameContainer.getBoundingClientRect();
+            recordingCanvas.width = containerRect.width;
+            recordingCanvas.height = containerRect.height;
+            
+            console.log('Created recording canvas:', recordingCanvas.width + 'x' + recordingCanvas.height);
+            
+            // Create a function to continuously update this canvas
+            const updateCanvas = () => {
+                // Clear canvas
+                ctx.clearRect(0, 0, recordingCanvas.width, recordingCanvas.height);
+                
+                // Fill background color (get from background color picker)
+                const bgColorPicker = document.getElementById('backgroundColorPicker');
+                const bgColor = bgColorPicker ? bgColorPicker.value : '#121212';
+                ctx.fillStyle = bgColor;
+                ctx.fillRect(0, 0, recordingCanvas.width, recordingCanvas.height);
+                
+                // Draw all image elements within frameContainer
+                this.drawImagesOnCanvas(ctx, containerRect);
+            };
+            
+            // Start continuous updates for recording
+            this.recordingUpdateInterval = setInterval(updateCanvas, 1000/30); // 30 FPS
+            
+            // Initial update
+            updateCanvas();
+            
+            return recordingCanvas;
+            
+        } catch (error) {
+            console.error('Failed to create frameContainer canvas:', error);
+            return null;
+        }
+    }
+    
+    drawImagesOnCanvas(ctx, containerRect) {
+        // Get all image elements within frameContainer
+        const images = this.frameContainer.querySelectorAll('img');
+        
+        images.forEach(img => {
+            if (img.style.display === 'none') return;
+            
+            try {
+                // Get image position and size
+                const imgRect = img.getBoundingClientRect();
+                
+                // Calculate relative position within frameContainer
+                const x = imgRect.left - containerRect.left;
+                const y = imgRect.top - containerRect.top;
+                const width = imgRect.width;
+                const height = imgRect.height;
+                
+                // Only draw if image is within container bounds
+                if (x < containerRect.width && y < containerRect.height && 
+                    x + width > 0 && y + height > 0) {
+                    
+                    // Draw the image
+                    ctx.drawImage(img, x, y, width, height);
+                }
+            } catch (drawError) {
+                // Skip images that can't be drawn (might not be loaded yet)
+                console.warn('Could not draw image to canvas:', drawError.message);
+            }
+        });
+    }
+    
+    stopFrameContainerRecording() {
+        if (this.recordingUpdateInterval) {
+            clearInterval(this.recordingUpdateInterval);
+            this.recordingUpdateInterval = null;
+        }
     }
     
     addLighting() {
