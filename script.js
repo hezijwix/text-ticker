@@ -1748,30 +1748,16 @@ class ProjectTemplate {
                 return;
         }
         
-        // Try to find the best supported format, preferring MP4
-        // For follow-spline mode, prefer WebM to avoid codec compatibility issues
-        let supportedFormats;
-        if (this.currentPreset === 'follow-spline') {
-            supportedFormats = [
-                'video/webm; codecs=vp9',         // VP9 WebM (most reliable for 2D canvas)
-                'video/webm; codecs=vp8',         // VP8 WebM
-                'video/webm',                     // Generic WebM
-                'video/mp4; codecs=avc1.42E01E',  // H.264 Baseline
-                'video/mp4; codecs=avc1.4D401E',  // H.264 Main
-                'video/mp4; codecs=h264',         // Generic H.264
-                'video/mp4'                       // Generic MP4
-            ];
-        } else {
-            supportedFormats = [
-                'video/mp4; codecs=avc1.42E01E',  // H.264 Baseline
-                'video/mp4; codecs=avc1.4D401E',  // H.264 Main
-                'video/mp4; codecs=h264',         // Generic H.264
-                'video/mp4',                      // Generic MP4
-                'video/webm; codecs=vp9',         // VP9 WebM
-                'video/webm; codecs=vp8',         // VP8 WebM
-                'video/webm'                      // Generic WebM
-            ];
-        }
+        // Try to find the best supported format, preferring MP4 for all modes
+        const supportedFormats = [
+            'video/mp4; codecs=avc1.42E01E',  // H.264 Baseline
+            'video/mp4; codecs=avc1.4D401E',  // H.264 Main
+            'video/mp4; codecs=h264',         // Generic H.264
+            'video/mp4',                      // Generic MP4
+            'video/webm; codecs=vp9',         // VP9 WebM (fallback)
+            'video/webm; codecs=vp8',         // VP8 WebM (fallback)
+            'video/webm'                      // Generic WebM (fallback)
+        ];
         
         let selectedFormat = null;
         for (const format of supportedFormats) {
@@ -1817,8 +1803,8 @@ class ProjectTemplate {
                 console.log('MP4 recorded natively, downloading directly');
                 this.downloadMP4(blob);
             } else {
-                // WebM recorded, try to convert to MP4
-                console.log('WebM recorded, attempting conversion to MP4');
+                // WebM recorded, always convert to MP4 (especially for follow-spline mode)
+                console.log('WebM recorded, converting to MP4 for better compatibility');
                 this.convertToMP4(blob);
             }
         };
@@ -1882,10 +1868,30 @@ class ProjectTemplate {
         console.log('convertToMP4 called, ffmpegLoaded:', this.ffmpegLoaded);
         
         if (!this.ffmpegLoaded) {
-            console.log('FFmpeg not loaded, falling back to WebM download');
-            this.exportBtn.textContent = 'Downloading WebM...';
-            this.downloadWebM(webmBlob);
-            return;
+            if (this.currentPreset === 'follow-spline') {
+                console.error('FFmpeg required for follow-spline MP4 conversion but not loaded');
+                
+                // Try to reload FFmpeg one more time for follow-spline mode
+                console.log('Attempting to reload FFmpeg for follow-spline mode...');
+                this.exportBtn.textContent = 'Retrying MP4 conversion...';
+                
+                await this.initFFmpeg();
+                
+                if (this.ffmpegLoaded) {
+                    console.log('FFmpeg loaded successfully on retry, proceeding with conversion');
+                    // Continue with conversion below
+                } else {
+                    alert('MP4 conversion requires FFmpeg to be loaded. The page may need to be refreshed to retry loading FFmpeg. Downloading as WebM for now.');
+                    this.exportBtn.textContent = 'Downloading WebM (MP4 conversion failed)...';
+                    this.downloadWebM(webmBlob);
+                    return;
+                }
+            } else {
+                console.log('FFmpeg not loaded, falling back to WebM download');
+                this.exportBtn.textContent = 'Downloading WebM...';
+                this.downloadWebM(webmBlob);
+                return;
+            }
         }
         
         try {
@@ -1957,7 +1963,11 @@ class ProjectTemplate {
                 errorMessage = 'Video codec issue during conversion';
             }
             
-            alert(errorMessage + '. Downloading as WebM instead.');
+            if (this.currentPreset === 'follow-spline') {
+                alert(errorMessage + '. Note: Follow Spline mode works best with MP4 format. You may want to try again or use an online WebM to MP4 converter. Downloading as WebM for now.');
+            } else {
+                alert(errorMessage + '. Downloading as WebM instead.');
+            }
             this.downloadWebM(webmBlob);
         }
     }
@@ -1976,7 +1986,11 @@ class ProjectTemplate {
         this.exportBtn.disabled = false;
         this.exportBtn.textContent = 'Export MP4';
         
-        alert('Video exported as WebM format. For MP4 conversion, you can use online converters or video editing software.');
+        if (this.currentPreset === 'follow-spline') {
+            alert('Video exported as WebM format. For best results with Follow Spline mode, try refreshing the page and exporting again to enable MP4 conversion. You can also use online converters like CloudConvert or HandBrake to convert WebM to MP4.');
+        } else {
+            alert('Video exported as WebM format. For MP4 conversion, you can use online converters or video editing software.');
+        }
     }
     
     downloadMP4(mp4Blob) {
