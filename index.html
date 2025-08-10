@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="style.css">
     <!-- Three.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+        <!-- JSZip for PNG sequence zipping -->
+        <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <!-- FFmpeg.js for MP4 conversion -->
     <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
     <script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/util.js"></script>
@@ -181,7 +183,15 @@
                 <h4>Background Color</h4>
                 <div class="color-control-row">
                     <label for="backgroundColorPicker">Color:</label>
-                    <input type="color" id="backgroundColorPicker" value="#121212" class="color-picker">
+                     <input type="color" id="backgroundColorPicker" value="#121212" class="color-picker">
+                     <!-- Alpha background toggle -->
+                     <div class="toggle-switch" id="alphaBackgroundToggle" style="margin-left: 12px;">
+                         <input type="checkbox" id="alphaBackgroundCheckbox" class="toggle-checkbox">
+                         <label for="alphaBackgroundCheckbox" class="toggle-label" title="Toggle transparent background">
+                             <span class="toggle-slider"></span>
+                             <span class="toggle-text">OFF</span>
+                         </label>
+                     </div>
                 </div>
             </div>
 
@@ -211,8 +221,8 @@
             </div>
 
             <div class="controls-section">
-                <h4>Export Video</h4>
-                <button class="control-btn export-btn" id="exportBtn">Export MP4</button>
+                <h4>Export</h4>
+                <button class="control-btn export-btn" id="exportBtn">Export</button>
             </div>
         </div>
         
@@ -305,7 +315,7 @@
     <div class="modal-overlay" id="exportModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Export Video</h3>
+                <h3>Export</h3>
                 <button class="modal-close" id="closeExportModal">&times;</button>
             </div>
             
@@ -322,8 +332,9 @@
                         <option value="auto">Auto (MP4 preferred)</option>
                         <option value="mp4">Force MP4</option>
                         <option value="webm">WebM</option>
+                        <option value="png-sequence">PNG Sequence</option>
                     </select>
-                    <span class="modal-hint">Auto works best for compatibility</span>
+                    <span class="modal-hint">Auto works best for video compatibility, PNG Sequence for image frames</span>
                 </div>
                 
                 <div class="modal-section">
@@ -334,7 +345,7 @@
             
             <div class="modal-footer">
                 <button class="modal-btn modal-btn-secondary" id="cancelExport">Cancel</button>
-                <button class="modal-btn modal-btn-primary" id="startExport">Start Recording</button>
+                <button class="modal-btn modal-btn-primary" id="startExport">Start Export</button>
             </div>
         </div>
     </div>

@@ -61,8 +61,11 @@ class ProjectTemplate {
         this.rotationZValue = document.getElementById('rotationZValue');
         this.resetRotationBtn = document.getElementById('resetRotationBtn');
         
-        // Background color picker
+        // Background controls
         this.backgroundColorPicker = document.getElementById('backgroundColorPicker');
+        this.alphaBackgroundCheckbox = document.getElementById('alphaBackgroundCheckbox');
+        this.alphaBackgroundToggleText = document.querySelector('#alphaBackgroundToggle .toggle-text');
+        this.isAlphaBackground = false;
         
         // Zoom controls
         this.zoomSlider = document.getElementById('zoomSlider');
@@ -405,10 +408,28 @@ class ProjectTemplate {
             this.resetRotation();
         });
         
-        // Background color picker
+        // Background controls
         this.backgroundColorPicker.addEventListener('change', (e) => {
+            // If currently in alpha mode, disable it when a color is selected
+            if (this.isAlphaBackground) {
+                this.setAlphaBackground(false);
+                if (this.alphaBackgroundCheckbox) {
+                    this.alphaBackgroundCheckbox.checked = false;
+                    if (this.alphaBackgroundToggleText) this.alphaBackgroundToggleText.textContent = 'OFF';
+                }
+            }
             this.setBackgroundColor(e.target.value);
         });
+
+        if (this.alphaBackgroundCheckbox) {
+            this.alphaBackgroundCheckbox.addEventListener('change', (e) => {
+                const enabled = !!e.target.checked;
+                this.setAlphaBackground(enabled);
+                if (this.alphaBackgroundToggleText) {
+                    this.alphaBackgroundToggleText.textContent = enabled ? 'ON' : 'OFF';
+                }
+            });
+        }
         
         // Export button
         this.exportBtn.addEventListener('click', () => {
@@ -563,10 +584,12 @@ class ProjectTemplate {
             this.ctx2D.globalCompositeOperation = 'source-over';
             this.ctx2D.globalAlpha = 1.0;
             
-            // Set background color to match frame (ensure it's a valid color)
-            const bgColor = this.currentBackgroundColor || '#121212';
-            this.ctx2D.fillStyle = bgColor;
-            this.ctx2D.fillRect(0, 0, this.canvas2D.width, this.canvas2D.height);
+            // If not in alpha mode, fill the background
+            if (!this.isAlphaBackground) {
+                const bgColor = this.currentBackgroundColor || '#121212';
+                this.ctx2D.fillStyle = bgColor;
+                this.ctx2D.fillRect(0, 0, this.canvas2D.width, this.canvas2D.height);
+            }
         }
     }
     
@@ -1530,11 +1553,14 @@ class ProjectTemplate {
         this.camera.position.set(0, 0, 10);
         this.camera.lookAt(0, 0, 0);
         
-        // Create renderer
-        this.renderer = new THREE.WebGLRenderer({ antialias: true });
+        // Create renderer (support transparency for alpha background mode)
+        this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         this.renderer.setSize(frameSize.width, frameSize.height);
         this.renderer.setPixelRatio(window.devicePixelRatio);
         
+        // Set initial clear alpha depending on toggle
+        this.renderer.setClearAlpha(this.isAlphaBackground ? 0 : 1);
+
         // Add renderer to frame container
         this.frameContainer.appendChild(this.renderer.domElement);
         
@@ -1676,18 +1702,66 @@ class ProjectTemplate {
         this.currentBackgroundColor = color;
         
         if (this.scene) {
-            this.scene.background = new THREE.Color(color);
+            if (this.isAlphaBackground) {
+                this.scene.background = null; // Transparent background
+            } else {
+                this.scene.background = new THREE.Color(color);
+            }
         }
         
         // Also set the frame container background for modes that don't use Three.js (like shuffle mode)
         if (this.frameContainer) {
-            this.frameContainer.style.backgroundColor = color;
-            // Use !important to override CSS rule
-            this.frameContainer.style.setProperty('background-color', color, 'important');
+            if (this.isAlphaBackground) {
+                this.frameContainer.classList.add('alpha-bg');
+                this.frameContainer.style.removeProperty('background-color');
+            } else {
+                this.frameContainer.classList.remove('alpha-bg');
+                this.frameContainer.style.backgroundColor = color;
+                // Use !important to override CSS rule
+                this.frameContainer.style.setProperty('background-color', color, 'important');
+            }
         }
         
         // If we have a 2D canvas (for spline mode), update its background
         if (this.canvas2D && this.currentPreset === 'follow-spline') {
+            this.clearCanvas();
+            this.drawSpline();
+        }
+    }
+
+    setAlphaBackground(enabled) {
+        this.isAlphaBackground = enabled;
+        // Update Three.js renderer transparency
+        if (this.renderer) {
+            try {
+                this.renderer.setClearAlpha(enabled ? 0 : 1);
+            } catch (e) {
+                // Fallback for older Three versions
+                this.renderer.getContext().clearColor(0, 0, 0, enabled ? 0 : 1);
+            }
+        }
+
+        // Scene background
+        if (this.scene) {
+            this.scene.background = enabled ? null : new THREE.Color(this.currentBackgroundColor || '#121212');
+        }
+
+        // Frame container background and class
+        if (this.frameContainer) {
+            if (enabled) {
+                this.frameContainer.classList.add('alpha-bg');
+                this.frameContainer.style.removeProperty('background-color');
+            } else {
+                this.frameContainer.classList.remove('alpha-bg');
+                const color = this.currentBackgroundColor || '#121212';
+                this.frameContainer.style.backgroundColor = color;
+                this.frameContainer.style.setProperty('background-color', color, 'important');
+            }
+        }
+
+        // 2D canvas background handling
+        if (this.canvas2D) {
+            // In alpha mode, we keep canvas clear (transparent) and rely on checkerboard behind
             this.clearCanvas();
             this.drawSpline();
         }
@@ -1716,20 +1790,27 @@ class ProjectTemplate {
         // Get the frame container's bounding rect
         const rect = this.frameContainer.getBoundingClientRect();
         
-        // Calculate the actual frame size (before zoom transform)
-        const frameSize = this.getFrameSize();
+        // Use the actual rendered frame size, not the intended size from inputs
+        // This accounts for CSS constraints like max-width/max-height
+        const actualFrameWidth = rect.width / this.currentZoom;
+        const actualFrameHeight = rect.height / this.currentZoom;
         
         // Calculate the visual size after zoom transform
-        const visualWidth = frameSize.width * this.currentZoom;
-        const visualHeight = frameSize.height * this.currentZoom;
+        const visualWidth = actualFrameWidth * this.currentZoom;
+        const visualHeight = actualFrameHeight * this.currentZoom;
         
-        // Calculate the offset due to centering after scaling
-        const offsetX = (rect.width - visualWidth) / 2;
-        const offsetY = (rect.height - visualHeight) / 2;
+        // Since we're using actual dimensions, the frame fills its bounding rect perfectly
+        // We only need to account for zoom transform centering within the frame container
+        const zoomOffsetX = (rect.width - visualWidth) / 2;
+        const zoomOffsetY = (rect.height - visualHeight) / 2;
         
-        // Get mouse position relative to the visual frame
-        const visualX = event.clientX - rect.left - offsetX;
-        const visualY = event.clientY - rect.top - offsetY;
+        // Get mouse position relative to the frame container's bounding rect
+        const relativeX = event.clientX - rect.left;
+        const relativeY = event.clientY - rect.top;
+        
+        // Adjust for zoom transform centering
+        const visualX = relativeX - zoomOffsetX;
+        const visualY = relativeY - zoomOffsetY;
         
         // Convert back to actual canvas coordinates by dividing by zoom
         const canvasX = visualX / this.currentZoom;
@@ -1788,11 +1869,16 @@ class ProjectTemplate {
         // Hide modal
         this.hideExportModal();
         
-        // Store format preference for this session
-        this.preferredExportFormat = format;
-        
-        // Start recording
-        this.startVideoRecording(duration);
+        // Check if PNG sequence was selected
+        if (format === 'png-sequence') {
+            this.exportPNGSequence(duration);
+        } else {
+            // Store format preference for this session
+            this.preferredExportFormat = format;
+            
+            // Start video recording
+            this.startVideoRecording(duration);
+        }
     }
     
     startVideoRecording(duration) {
@@ -1812,7 +1898,7 @@ class ProjectTemplate {
                 if (!this.renderer || !this.renderer.domElement) {
                     alert('Three.js canvas not ready for recording');
                     this.exportBtn.disabled = false;
-                    this.exportBtn.textContent = 'Export MP4';
+                    this.exportBtn.textContent = 'Export';
                     return;
                 }
                 canvas = this.renderer.domElement;
@@ -1825,7 +1911,7 @@ class ProjectTemplate {
                 if (!canvas) {
                     alert('Unable to create recording canvas for follow spline mode');
                     this.exportBtn.disabled = false;
-                    this.exportBtn.textContent = 'Export MP4';
+                    this.exportBtn.textContent = 'Export';
                     return;
                 }
                 stream = canvas.captureStream(30);
@@ -1838,7 +1924,7 @@ class ProjectTemplate {
                 if (!canvas) {
                     alert('Unable to create canvas for recording HTML content');
                     this.exportBtn.disabled = false;
-                    this.exportBtn.textContent = 'Export MP4';
+                    this.exportBtn.textContent = 'Export';
                     return;
                 }
                 stream = canvas.captureStream(30);
@@ -1847,7 +1933,7 @@ class ProjectTemplate {
             default:
                 alert('Unknown gallery mode for recording');
                 this.exportBtn.disabled = false;
-                this.exportBtn.textContent = 'Export MP4';
+                this.exportBtn.textContent = 'Export';
                 return;
         }
         
@@ -1900,7 +1986,7 @@ class ProjectTemplate {
         if (!selectedFormat) {
             alert('Your browser does not support video recording. Please try a different browser.');
             this.exportBtn.disabled = false;
-            this.exportBtn.textContent = 'Export MP4';
+            this.exportBtn.textContent = 'Export';
             return;
         }
         
@@ -2115,7 +2201,7 @@ class ProjectTemplate {
         
         // Re-enable export button
         this.exportBtn.disabled = false;
-        this.exportBtn.textContent = 'Export MP4';
+        this.exportBtn.textContent = 'Export';
         
         if (this.currentPreset === 'follow-spline') {
             alert('Video exported as WebM format. For best results with Follow Spline mode, try refreshing the page and exporting again to enable MP4 conversion. You can also use online converters like CloudConvert or HandBrake to convert WebM to MP4.');
@@ -2136,9 +2222,178 @@ class ProjectTemplate {
         
         // Re-enable export button
         this.exportBtn.disabled = false;
-        this.exportBtn.textContent = 'Export MP4';
+        this.exportBtn.textContent = 'Export';
         
         console.log('✅ MP4 file downloaded successfully');
+    }
+
+    async exportPNGSequence(durationSeconds) {
+        try {
+            // Disable export button during capture
+            this.exportBtn.disabled = true;
+            this.exportBtn.textContent = 'Exporting PNGs...';
+
+            const fps = 60;
+            const totalFrames = Math.round(durationSeconds * fps);
+
+            // Prepare a render source depending on mode
+            // No need for a persistent capture canvas; we use an offscreen per frame
+            let cleanups = [];
+
+            const frameSize = this.getFrameSize();
+
+            const createOffscreenCanvas = () => {
+                const c = document.createElement('canvas');
+                c.width = frameSize.width;
+                c.height = frameSize.height;
+                return c;
+            };
+
+            // Helper to draw current frame into a canvas honoring alpha/bg
+            const drawFrameToCanvas = (targetCtx) => {
+                // Clear
+                targetCtx.clearRect(0, 0, frameSize.width, frameSize.height);
+                // If not alpha, paint background
+                if (!this.isAlphaBackground) {
+                    const color = this.currentBackgroundColor || '#121212';
+                    targetCtx.fillStyle = color;
+                    targetCtx.fillRect(0, 0, frameSize.width, frameSize.height);
+                }
+
+                switch (this.currentPreset) {
+                    case 'ring': {
+                        // Render Three.js to an offscreen then draw
+                        // Ensure renderer is correct size
+                        const prevPixelRatio = this.renderer.getPixelRatio ? this.renderer.getPixelRatio() : 1;
+                        this.renderer.setSize(frameSize.width, frameSize.height, false);
+                        if (this.renderer.setPixelRatio) this.renderer.setPixelRatio(1);
+                        this.renderer.render(this.scene, this.camera);
+                        targetCtx.drawImage(this.renderer.domElement, 0, 0);
+                        // Restore pixel ratio
+                        if (this.renderer.setPixelRatio) this.renderer.setPixelRatio(prevPixelRatio);
+                        break;
+                    }
+                    case 'follow-spline': {
+                        // Do NOT draw the green guide line; only draw images
+                        // Optionally draw placeholder when nothing is present
+                        if ((!this.currentSpline || this.currentSpline.length < 2) && 
+                            (!this.splinePoints || this.splinePoints.length < 2) && 
+                            this.imageElements2D.length === 0) {
+                            this.drawSplinePlaceholderOnCanvas(targetCtx);
+                        }
+                        // Draw animated images
+                        this.drawSplineImagesOnCanvas(targetCtx, frameSize);
+                        break;
+                    }
+                    case 'cursor-trail':
+                    case 'shuffle': {
+                        // Draw DOM images positions into target
+                        this.drawImagesOnCanvas(targetCtx, frameSize);
+                        break;
+                    }
+                    default:
+                        break;
+                }
+            };
+
+            // Create a zip
+            const zip = new JSZip();
+
+            // Drive deterministic stepping per frame
+            // For ring: increment rotation by speed per frame and render
+            // For spline: step splineAnimationDistance deterministically
+
+            // Cache starting values to restore later
+            const savedRotationY = this.rotationGroup ? this.rotationGroup.rotation.y : 0;
+            const savedSplineDistance = this.splineAnimationDistance;
+            const savedSpeed = this.currentSpeed;
+            const savedSplineSpeed = this.splineAnimationSpeed;
+            const wasAnimatingSpline = !!this.splineAnimationId;
+
+            // Pause spline rAF-driven animation to avoid double-stepping
+            if (wasAnimatingSpline) {
+                cancelAnimationFrame(this.splineAnimationId);
+                this.splineAnimationId = null;
+            }
+            // Prevent ring animate loop from rotating during capture
+            this.currentSpeed = 0;
+
+            // Use fixed step independent of rAF
+            for (let i = 0; i < totalFrames; i++) {
+                // Step animations deterministically
+                if (this.currentPreset === 'ring') {
+                    // Rotate by degrees per frame, convert to radians
+                    const deltaRad = THREE.MathUtils.degToRad(savedSpeed);
+                    this.rotationGroup.rotateY(deltaRad);
+                    this.updateImagePositions();
+                } else if (this.currentPreset === 'follow-spline') {
+                    if (this.splineCumulativeDistances) {
+                        const totalDistance = this.splineCumulativeDistances[this.splineCumulativeDistances.length - 1] || 0;
+                        this.splineAnimationDistance += savedSplineSpeed;
+                        if (totalDistance > 0 && this.splineAnimationDistance > totalDistance) {
+                            this.splineAnimationDistance = 0;
+                        }
+                        // Reposition elements to reflect new distance
+                        const imagesWithPosition = [];
+                        this.imageElements2D.forEach((element) => {
+                            const offset = element.userData.animationOffset;
+                            let currentDistance = totalDistance > 0 ? (this.splineAnimationDistance + offset) % totalDistance : 0;
+                            let t = totalDistance > 0 ? currentDistance / totalDistance : 0;
+                            const pos = this.getSplinePosition(t);
+                            element.style.left = (pos.x - element.offsetWidth / 2) + 'px';
+                            element.style.top = (pos.y - element.offsetHeight / 2) + 'px';
+                            imagesWithPosition.push({ img: element, t });
+                        });
+                        imagesWithPosition.sort((a, b) => a.t - b.t);
+                        imagesWithPosition.forEach((item, index) => {
+                            item.img.style.zIndex = (10 + index).toString();
+                        });
+                    }
+                }
+
+                // Compose frame into offscreen
+                const offscreen = createOffscreenCanvas();
+                const ctx = offscreen.getContext('2d');
+                drawFrameToCanvas(ctx);
+
+                // Encode PNG
+                const blob = await new Promise((resolve) => offscreen.toBlob(resolve, 'image/png'));
+                const arrayBuffer = await blob.arrayBuffer();
+                const uint8 = new Uint8Array(arrayBuffer);
+                const filename = `svgallery_${String(i).padStart(4, '0')}.png`;
+                zip.file(filename, uint8);
+            }
+
+            // Restore states
+            if (this.rotationGroup) this.rotationGroup.rotation.y = savedRotationY;
+            this.splineAnimationDistance = savedSplineDistance;
+            this.currentSpeed = savedSpeed;
+            if (wasAnimatingSpline) {
+                this.splineAnimationId = requestAnimationFrame(() => this.animate2DImages());
+            }
+
+            // Generate zip
+            this.exportBtn.textContent = 'Zipping...';
+            const zipBlob = await zip.generateAsync({ type: 'blob' });
+
+            // Download zip
+            const url = URL.createObjectURL(zipBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `svgallery_frames_${Date.now()}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            this.exportBtn.disabled = false;
+            this.exportBtn.textContent = 'Export';
+        } catch (err) {
+            console.error('PNG sequence export failed:', err);
+            alert('PNG sequence export failed: ' + err.message);
+            this.exportBtn.disabled = false;
+            this.exportBtn.textContent = 'Export';
+        }
     }
     
     createFrameContainerCanvas() {
@@ -2159,11 +2414,13 @@ class ProjectTemplate {
                 // Clear canvas
                 ctx.clearRect(0, 0, recordingCanvas.width, recordingCanvas.height);
                 
-                // Fill background color (get from background color picker)
-                const bgColorPicker = document.getElementById('backgroundColorPicker');
-                const bgColor = bgColorPicker ? bgColorPicker.value : '#121212';
-                ctx.fillStyle = bgColor;
-                ctx.fillRect(0, 0, recordingCanvas.width, recordingCanvas.height);
+                // Fill background color unless alpha background is enabled
+                if (!this.isAlphaBackground) {
+                    const bgColorPicker = document.getElementById('backgroundColorPicker');
+                    const bgColor = bgColorPicker ? bgColorPicker.value : '#121212';
+                    ctx.fillStyle = bgColor;
+                    ctx.fillRect(0, 0, recordingCanvas.width, recordingCanvas.height);
+                }
                 
                 // Draw all image elements at original resolution
                 this.drawImagesOnCanvas(ctx, frameSize);
@@ -2185,38 +2442,51 @@ class ProjectTemplate {
     
     drawImagesOnCanvas(ctx, frameSize) {
         // Get all image elements within frameContainer
-        const images = this.frameContainer.querySelectorAll('img');
-        
+        const nodeList = this.frameContainer.querySelectorAll('img');
+        const images = Array.from(nodeList).filter(img => img.style.display !== 'none');
+
+        // Sort by computed z-index ascending so we paint back-to-front
+        images.sort((a, b) => {
+            const za = parseInt(window.getComputedStyle(a).zIndex || '0', 10) || 0;
+            const zb = parseInt(window.getComputedStyle(b).zIndex || '0', 10) || 0;
+            if (za === zb) return 0; // keep DOM order for ties
+            return za - zb;
+        });
+
         images.forEach(img => {
-            if (img.style.display === 'none') return;
-            
             try {
                 // Get actual element position and size without zoom transformation
                 const imgRect = img.getBoundingClientRect();
                 const containerRect = this.frameContainer.getBoundingClientRect();
-                
-                // Calculate visual position relative to container
-                const visualX = imgRect.left - containerRect.left;
-                const visualY = imgRect.top - containerRect.top;
-                const visualWidth = imgRect.width;
-                const visualHeight = imgRect.height;
-                
+
+                // Calculate the actual frame size and visual size after zoom transform
+                const actualFrameWidth = containerRect.width / this.currentZoom;
+                const actualFrameHeight = containerRect.height / this.currentZoom;
+                const visualWidth = actualFrameWidth * this.currentZoom;
+                const visualHeight = actualFrameHeight * this.currentZoom;
+
+                // Calculate zoom transform centering offset
+                const zoomOffsetX = (containerRect.width - visualWidth) / 2;
+                const zoomOffsetY = (containerRect.height - visualHeight) / 2;
+
+                // Calculate visual position relative to container, accounting for zoom centering
+                const relativeX = imgRect.left - containerRect.left;
+                const relativeY = imgRect.top - containerRect.top;
+                const visualX = relativeX - zoomOffsetX;
+                const visualY = relativeY - zoomOffsetY;
+
                 // Convert from visual coordinates to actual content coordinates
-                // Reverse the zoom transformation to get original coordinates
                 const actualX = visualX / this.currentZoom;
                 const actualY = visualY / this.currentZoom;
-                const actualWidth = visualWidth / this.currentZoom;
-                const actualHeight = visualHeight / this.currentZoom;
-                
+                const actualWidth = imgRect.width / this.currentZoom;
+                const actualHeight = imgRect.height / this.currentZoom;
+
                 // Only draw if image is within frame bounds
-                if (actualX < frameSize.width && actualY < frameSize.height && 
+                if (actualX < frameSize.width && actualY < frameSize.height &&
                     actualX + actualWidth > 0 && actualY + actualHeight > 0) {
-                    
-                    // Draw the image at actual resolution
                     ctx.drawImage(img, actualX, actualY, actualWidth, actualHeight);
                 }
             } catch (drawError) {
-                // Skip images that can't be drawn (might not be loaded yet)
                 console.warn('Could not draw image to canvas:', drawError.message);
             }
         });
@@ -2247,11 +2517,13 @@ class ProjectTemplate {
                 // Clear canvas
                 ctx.clearRect(0, 0, recordingCanvas.width, recordingCanvas.height);
                 
-                // Fill background color
-                const bgColorPicker = document.getElementById('backgroundColorPicker');
-                const bgColor = bgColorPicker ? bgColorPicker.value : '#121212';
-                ctx.fillStyle = bgColor;
-                ctx.fillRect(0, 0, recordingCanvas.width, recordingCanvas.height);
+                // Fill background color unless alpha background is enabled
+                if (!this.isAlphaBackground) {
+                    const bgColorPicker = document.getElementById('backgroundColorPicker');
+                    const bgColor = bgColorPicker ? bgColorPicker.value : '#121212';
+                    ctx.fillStyle = bgColor;
+                    ctx.fillRect(0, 0, recordingCanvas.width, recordingCanvas.height);
+                }
                 
                 // Note: We don't draw the spline line in the recording - only the animated images
                 // The green guide line is only for editing, not for the final video output
@@ -2303,38 +2575,50 @@ class ProjectTemplate {
     
     drawSplineImagesOnCanvas(ctx, frameSize) {
         // Get all image elements for spline mode
-        const images = this.imageElements2D;
-        
+        const images = this.imageElements2D.filter(img => img.style.display !== 'none');
+
+        // Sort by computed z-index ascending so we paint back-to-front
+        images.sort((a, b) => {
+            const za = parseInt(window.getComputedStyle(a).zIndex || '0', 10) || 0;
+            const zb = parseInt(window.getComputedStyle(b).zIndex || '0', 10) || 0;
+            if (za === zb) return 0; // keep DOM order for ties
+            return za - zb;
+        });
+
         images.forEach(img => {
-            if (img.style.display === 'none') return;
-            
             try {
                 // Get actual element position and size without zoom transformation
                 const imgRect = img.getBoundingClientRect();
                 const containerRect = this.frameContainer.getBoundingClientRect();
-                
-                // Calculate visual position relative to container
-                const visualX = imgRect.left - containerRect.left;
-                const visualY = imgRect.top - containerRect.top;
-                const visualWidth = imgRect.width;
-                const visualHeight = imgRect.height;
-                
+
+                // Calculate the actual frame size and visual size after zoom transform
+                const actualFrameWidth = containerRect.width / this.currentZoom;
+                const actualFrameHeight = containerRect.height / this.currentZoom;
+                const visualWidth = actualFrameWidth * this.currentZoom;
+                const visualHeight = actualFrameHeight * this.currentZoom;
+
+                // Calculate zoom transform centering offset
+                const zoomOffsetX = (containerRect.width - visualWidth) / 2;
+                const zoomOffsetY = (containerRect.height - visualHeight) / 2;
+
+                // Calculate visual position relative to container, accounting for zoom centering
+                const relativeX = imgRect.left - containerRect.left;
+                const relativeY = imgRect.top - containerRect.top;
+                const visualX = relativeX - zoomOffsetX;
+                const visualY = relativeY - zoomOffsetY;
+
                 // Convert from visual coordinates to actual content coordinates
-                // Reverse the zoom transformation to get original coordinates
                 const actualX = visualX / this.currentZoom;
                 const actualY = visualY / this.currentZoom;
-                const actualWidth = visualWidth / this.currentZoom;
-                const actualHeight = visualHeight / this.currentZoom;
-                
+                const actualWidth = imgRect.width / this.currentZoom;
+                const actualHeight = imgRect.height / this.currentZoom;
+
                 // Only draw if image is within frame bounds
-                if (actualX < frameSize.width && actualY < frameSize.height && 
+                if (actualX < frameSize.width && actualY < frameSize.height &&
                     actualX + actualWidth > 0 && actualY + actualHeight > 0) {
-                    
-                    // Draw the image at actual resolution
                     ctx.drawImage(img, actualX, actualY, actualWidth, actualHeight);
                 }
             } catch (drawError) {
-                // Skip images that can't be drawn (might not be loaded yet)
                 console.warn('Could not draw spline image to canvas:', drawError.message);
             }
         });
