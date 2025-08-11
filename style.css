@@ -404,8 +404,9 @@ body {
     }
     
     .frame-container {
-        max-width: 100%;
-        max-height: 60vh;
+        /* Allow frame to be constrained by JavaScript for proper aspect ratio */
+        max-width: none;
+        max-height: none;
     }
 }
 

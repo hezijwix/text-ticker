@@ -2440,6 +2440,46 @@ class ProjectTemplate {
         }
     }
     
+    // Helper function to convert DOM element position to export canvas coordinates
+    convertDOMToExportCoordinates(imgRect, frameSize) {
+        const containerRect = this.frameContainer.getBoundingClientRect();
+        
+        // Calculate actual frame dimensions (accounting for responsive constraints)
+        const actualFrameWidth = containerRect.width / this.currentZoom;
+        const actualFrameHeight = containerRect.height / this.currentZoom;
+        
+        // Calculate zoom transform centering offsets
+        const visualWidth = actualFrameWidth * this.currentZoom;
+        const visualHeight = actualFrameHeight * this.currentZoom;
+        const zoomOffsetX = (containerRect.width - visualWidth) / 2;
+        const zoomOffsetY = (containerRect.height - visualHeight) / 2;
+        
+        // Get visual position relative to container
+        const relativeX = imgRect.left - containerRect.left;
+        const relativeY = imgRect.top - containerRect.top;
+        
+        // Adjust for zoom transform centering
+        const visualX = relativeX - zoomOffsetX;
+        const visualY = relativeY - zoomOffsetY;
+        
+        // Convert to actual canvas coordinates
+        const canvasX = visualX / this.currentZoom;
+        const canvasY = visualY / this.currentZoom;
+        const canvasWidth = imgRect.width / this.currentZoom;
+        const canvasHeight = imgRect.height / this.currentZoom;
+        
+        // Scale coordinates to export frame dimensions if they differ from actual frame
+        const scaleX = frameSize.width / actualFrameWidth;
+        const scaleY = frameSize.height / actualFrameHeight;
+        
+        return {
+            x: canvasX * scaleX,
+            y: canvasY * scaleY,
+            width: canvasWidth * scaleX,
+            height: canvasHeight * scaleY
+        };
+    }
+
     drawImagesOnCanvas(ctx, frameSize) {
         // Get all image elements within frameContainer
         const nodeList = this.frameContainer.querySelectorAll('img');
@@ -2455,36 +2495,15 @@ class ProjectTemplate {
 
         images.forEach(img => {
             try {
-                // Get actual element position and size without zoom transformation
                 const imgRect = img.getBoundingClientRect();
-                const containerRect = this.frameContainer.getBoundingClientRect();
-
-                // Calculate the actual frame size and visual size after zoom transform
-                const actualFrameWidth = containerRect.width / this.currentZoom;
-                const actualFrameHeight = containerRect.height / this.currentZoom;
-                const visualWidth = actualFrameWidth * this.currentZoom;
-                const visualHeight = actualFrameHeight * this.currentZoom;
-
-                // Calculate zoom transform centering offset
-                const zoomOffsetX = (containerRect.width - visualWidth) / 2;
-                const zoomOffsetY = (containerRect.height - visualHeight) / 2;
-
-                // Calculate visual position relative to container, accounting for zoom centering
-                const relativeX = imgRect.left - containerRect.left;
-                const relativeY = imgRect.top - containerRect.top;
-                const visualX = relativeX - zoomOffsetX;
-                const visualY = relativeY - zoomOffsetY;
-
-                // Convert from visual coordinates to actual content coordinates
-                const actualX = visualX / this.currentZoom;
-                const actualY = visualY / this.currentZoom;
-                const actualWidth = imgRect.width / this.currentZoom;
-                const actualHeight = imgRect.height / this.currentZoom;
+                
+                // Use the new coordinate conversion function
+                const coords = this.convertDOMToExportCoordinates(imgRect, frameSize);
 
                 // Only draw if image is within frame bounds
-                if (actualX < frameSize.width && actualY < frameSize.height &&
-                    actualX + actualWidth > 0 && actualY + actualHeight > 0) {
-                    ctx.drawImage(img, actualX, actualY, actualWidth, actualHeight);
+                if (coords.x < frameSize.width && coords.y < frameSize.height &&
+                    coords.x + coords.width > 0 && coords.y + coords.height > 0) {
+                    ctx.drawImage(img, coords.x, coords.y, coords.width, coords.height);
                 }
             } catch (drawError) {
                 console.warn('Could not draw image to canvas:', drawError.message);
@@ -2587,36 +2606,15 @@ class ProjectTemplate {
 
         images.forEach(img => {
             try {
-                // Get actual element position and size without zoom transformation
                 const imgRect = img.getBoundingClientRect();
-                const containerRect = this.frameContainer.getBoundingClientRect();
-
-                // Calculate the actual frame size and visual size after zoom transform
-                const actualFrameWidth = containerRect.width / this.currentZoom;
-                const actualFrameHeight = containerRect.height / this.currentZoom;
-                const visualWidth = actualFrameWidth * this.currentZoom;
-                const visualHeight = actualFrameHeight * this.currentZoom;
-
-                // Calculate zoom transform centering offset
-                const zoomOffsetX = (containerRect.width - visualWidth) / 2;
-                const zoomOffsetY = (containerRect.height - visualHeight) / 2;
-
-                // Calculate visual position relative to container, accounting for zoom centering
-                const relativeX = imgRect.left - containerRect.left;
-                const relativeY = imgRect.top - containerRect.top;
-                const visualX = relativeX - zoomOffsetX;
-                const visualY = relativeY - zoomOffsetY;
-
-                // Convert from visual coordinates to actual content coordinates
-                const actualX = visualX / this.currentZoom;
-                const actualY = visualY / this.currentZoom;
-                const actualWidth = imgRect.width / this.currentZoom;
-                const actualHeight = imgRect.height / this.currentZoom;
+                
+                // Use the same coordinate conversion function
+                const coords = this.convertDOMToExportCoordinates(imgRect, frameSize);
 
                 // Only draw if image is within frame bounds
-                if (actualX < frameSize.width && actualY < frameSize.height &&
-                    actualX + actualWidth > 0 && actualY + actualHeight > 0) {
-                    ctx.drawImage(img, actualX, actualY, actualWidth, actualHeight);
+                if (coords.x < frameSize.width && coords.y < frameSize.height &&
+                    coords.x + coords.width > 0 && coords.y + coords.height > 0) {
+                    ctx.drawImage(img, coords.x, coords.y, coords.width, coords.height);
                 }
             } catch (drawError) {
                 console.warn('Could not draw spline image to canvas:', drawError.message);
@@ -2727,6 +2725,9 @@ class ProjectTemplate {
     onWindowResize() {
         const frameSize = this.getFrameSize();
         
+        // Update responsive constraints to maintain aspect ratio
+        this.applyResponsiveConstraints(frameSize.width, frameSize.height);
+        
         if (this.camera && this.renderer) {
             this.camera.aspect = frameSize.width / frameSize.height;
             this.camera.updateProjectionMatrix();
@@ -2776,6 +2777,9 @@ class ProjectTemplate {
         this.widthInput.value = clampedWidth;
         this.heightInput.value = clampedHeight;
         
+        // Apply responsive constraints that preserve aspect ratio
+        this.applyResponsiveConstraints(clampedWidth, clampedHeight);
+        
         // Update Three.js renderer size
         if (this.renderer && this.camera) {
             this.camera.aspect = clampedWidth / clampedHeight;
@@ -2784,6 +2788,44 @@ class ProjectTemplate {
         }
         
         console.log(`Frame size updated to: ${clampedWidth}x${clampedHeight}`);
+    }
+    
+    applyResponsiveConstraints(targetWidth, targetHeight) {
+        // Get the content area dimensions to calculate available space
+        const contentArea = this.frameContainer.parentElement;
+        const contentRect = contentArea.getBoundingClientRect();
+        
+        // Account for content area padding (20px on each side for mobile, 40px for desktop)
+        const isMobile = window.innerWidth <= 768;
+        const padding = isMobile ? 40 : 80; // 20px or 40px on each side
+        const availableWidth = contentRect.width - padding;
+        const availableHeight = contentRect.height - padding;
+        
+        // Calculate the aspect ratio
+        const aspectRatio = targetWidth / targetHeight;
+        
+        // Determine the constraining dimension while preserving aspect ratio
+        let constrainedWidth = targetWidth;
+        let constrainedHeight = targetHeight;
+        
+        // Check if we need to scale down to fit available space
+        if (targetWidth > availableWidth || targetHeight > availableHeight) {
+            // Calculate scale factors for both dimensions
+            const widthScale = availableWidth / targetWidth;
+            const heightScale = availableHeight / targetHeight;
+            
+            // Use the more restrictive scale factor to preserve aspect ratio
+            const scale = Math.min(widthScale, heightScale);
+            
+            constrainedWidth = targetWidth * scale;
+            constrainedHeight = targetHeight * scale;
+        }
+        
+        // Apply the constraints as CSS properties on the frame container
+        this.frameContainer.style.maxWidth = `${constrainedWidth}px`;
+        this.frameContainer.style.maxHeight = `${constrainedHeight}px`;
+        
+        console.log(`Applied responsive constraints: ${Math.round(constrainedWidth)}x${Math.round(constrainedHeight)} (aspect ratio: ${aspectRatio.toFixed(2)})`);
     }
     
     // Method to programmatically set frame size (useful for future extensions)
