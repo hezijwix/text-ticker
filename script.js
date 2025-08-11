@@ -2505,8 +2505,35 @@ class ProjectTemplate {
             const drawFrameToCanvas = (targetCtx) => {
                 // Clear
                 targetCtx.clearRect(0, 0, frameSize.width, frameSize.height);
-                // If not alpha, paint background
-                if (!this.isAlphaBackground) {
+                
+                // Draw background image if present, otherwise use color
+                if (this.backgroundImageDataUrl) {
+                    const img = this.backgroundImageElement || new Image();
+                    if (!this.backgroundImageElement) {
+                        img.src = this.backgroundImageDataUrl;
+                        this.backgroundImageElement = img;
+                    }
+                    if (img.complete) {
+                        const sw = img.width;
+                        const sh = img.height;
+                        const dw = frameSize.width;
+                        const dh = frameSize.height;
+                        const sRatio = sw / sh;
+                        const dRatio = dw / dh;
+                        let drawW, drawH;
+                        if (sRatio > dRatio) {
+                            drawH = dh;
+                            drawW = dh * sRatio;
+                        } else {
+                            drawW = dw;
+                            drawH = dw / sRatio;
+                        }
+                        const dx = (dw - drawW) / 2;
+                        const dy = (dh - drawH) / 2;
+                        targetCtx.drawImage(img, dx, dy, drawW, drawH);
+                    }
+                } else if (!this.isAlphaBackground) {
+                    // If no background image and not alpha, paint background color
                     const color = this.currentBackgroundColor || '#121212';
                     targetCtx.fillStyle = color;
                     targetCtx.fillRect(0, 0, frameSize.width, frameSize.height);
@@ -2545,6 +2572,34 @@ class ProjectTemplate {
                     }
                     default:
                         break;
+                }
+                
+                // Draw foreground overlay if present (on top of everything)
+                if (this.foregroundImageDataUrl) {
+                    const img = this.foregroundImageElement || new Image();
+                    if (!this.foregroundImageElement) {
+                        img.src = this.foregroundImageDataUrl;
+                        this.foregroundImageElement = img;
+                    }
+                    if (img.complete) {
+                        const sw = img.width;
+                        const sh = img.height;
+                        const dw = frameSize.width;
+                        const dh = frameSize.height;
+                        const sRatio = sw / sh;
+                        const dRatio = dw / dh;
+                        let drawW, drawH;
+                        if (sRatio > dRatio) {
+                            drawH = dh;
+                            drawW = dh * sRatio;
+                        } else {
+                            drawW = dw;
+                            drawH = dw / sRatio;
+                        }
+                        const dx = (dw - drawW) / 2;
+                        const dy = (dh - drawH) / 2;
+                        targetCtx.drawImage(img, dx, dy, drawW, drawH);
+                    }
                 }
             };
 
