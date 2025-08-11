@@ -66,6 +66,17 @@ class ProjectTemplate {
         this.alphaBackgroundCheckbox = document.getElementById('alphaBackgroundCheckbox');
         this.alphaBackgroundToggleText = document.querySelector('#alphaBackgroundToggle .toggle-text');
         this.isAlphaBackground = false;
+        // Background image controls
+        this.bgUploadButton = document.getElementById('bgUploadButton');
+        this.bgImageInput = document.getElementById('bgImageInput');
+        this.backgroundImageDataUrl = null;
+        this.backgroundImageElement = null;
+        
+        // Foreground image controls
+        this.fgUploadButton = document.getElementById('fgUploadButton');
+        this.fgImageInput = document.getElementById('fgImageInput');
+        this.foregroundImageDataUrl = null;
+        this.foregroundImageElement = null;
         
         // Zoom controls
         this.zoomSlider = document.getElementById('zoomSlider');
@@ -171,6 +182,205 @@ class ProjectTemplate {
         this.initEventListeners();
         this.initThreeJS();
         this.initFFmpeg();
+    }
+
+    // Background image helpers
+    handleBackgroundImageUpload(event) {
+        const file = event.target.files && event.target.files[0];
+        if (!file || !file.type.startsWith('image/')) {
+            event.target.value = '';
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            this.backgroundImageDataUrl = e.target.result;
+            this.applyBackgroundImageStyles();
+            this.renderBackgroundThumbnail();
+            this.updateRendererClearAlphaForBackground();
+            // Update Three.js scene background to be transparent so CSS background image shows
+            if (this.scene) {
+                this.scene.background = null;
+            }
+        };
+        reader.readAsDataURL(file);
+        // reset input
+        event.target.value = '';
+    }
+
+    applyBackgroundImageStyles() {
+        if (!this.frameContainer || !this.backgroundImageDataUrl) return;
+        this.frameContainer.classList.remove('alpha-bg');
+        // Show image as cover
+        this.frameContainer.style.backgroundImage = `url('${this.backgroundImageDataUrl}')`;
+        this.frameContainer.style.backgroundSize = 'cover';
+        this.frameContainer.style.backgroundRepeat = 'no-repeat';
+        this.frameContainer.style.backgroundPosition = 'center center';
+        // Remove background color override
+        this.frameContainer.style.removeProperty('background-color');
+    }
+
+    clearBackgroundImage() {
+        this.backgroundImageDataUrl = null;
+        this.backgroundImageElement = null;
+        // Clear styles
+        if (this.frameContainer) {
+            this.frameContainer.style.removeProperty('background-image');
+            this.frameContainer.style.removeProperty('background-size');
+            this.frameContainer.style.removeProperty('background-repeat');
+            this.frameContainer.style.removeProperty('background-position');
+            if (this.isAlphaBackground) {
+                this.frameContainer.classList.add('alpha-bg');
+                this.frameContainer.style.removeProperty('background-color');
+            } else {
+                this.frameContainer.classList.remove('alpha-bg');
+                const color = this.currentBackgroundColor || '#121212';
+                this.frameContainer.style.backgroundColor = color;
+                this.frameContainer.style.setProperty('background-color', color, 'important');
+            }
+        }
+        // Update renderer and scene background
+        this.updateRendererClearAlphaForBackground();
+        if (this.scene) {
+            if (this.isAlphaBackground) {
+                this.scene.background = null;
+            } else {
+                this.scene.background = new THREE.Color(this.currentBackgroundColor || '#121212');
+            }
+        }
+        // Clear thumbnail
+        this.renderBackgroundThumbnail();
+        // Redraw canvases if needed
+        if (this.canvas2D && this.currentPreset === 'follow-spline') {
+            this.clearCanvas();
+            this.drawSpline();
+        }
+    }
+
+    renderBackgroundThumbnail() {
+        if (!this.bgUploadButton) return;
+        
+        if (!this.backgroundImageDataUrl) {
+            // Reset to upload state
+            this.bgUploadButton.classList.remove('has-thumbnail');
+            this.bgUploadButton.style.removeProperty('background-image');
+            // Remove any existing remove button
+            const existingRemoveBtn = this.bgUploadButton.querySelector('.bg-thumb-remove');
+            if (existingRemoveBtn) {
+                existingRemoveBtn.remove();
+            }
+            return;
+        }
+
+        // Show thumbnail in button
+        this.bgUploadButton.classList.add('has-thumbnail');
+        this.bgUploadButton.style.backgroundImage = `url('${this.backgroundImageDataUrl}')`;
+        
+        // Add remove button if not already present
+        let removeBtn = this.bgUploadButton.querySelector('.bg-thumb-remove');
+        if (!removeBtn) {
+            removeBtn = document.createElement('button');
+            removeBtn.className = 'bg-thumb-remove';
+            removeBtn.textContent = '×';
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.clearBackgroundImage();
+            });
+            this.bgUploadButton.appendChild(removeBtn);
+        }
+    }
+
+    // Foreground image helpers
+    handleForegroundImageUpload(event) {
+        const file = event.target.files && event.target.files[0];
+        if (!file || !file.type.startsWith('image/')) {
+            event.target.value = '';
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            this.foregroundImageDataUrl = e.target.result;
+            this.applyForegroundImageStyles();
+            this.renderForegroundThumbnail();
+        };
+        reader.readAsDataURL(file);
+        // reset input
+        event.target.value = '';
+    }
+
+    applyForegroundImageStyles() {
+        if (!this.frameContainer || !this.foregroundImageDataUrl) return;
+        
+        // Remove existing foreground overlay if any
+        const existingOverlay = this.frameContainer.querySelector('.foreground-overlay');
+        if (existingOverlay) {
+            existingOverlay.remove();
+        }
+
+        // Create foreground overlay element
+        const overlay = document.createElement('div');
+        overlay.className = 'foreground-overlay';
+        overlay.style.position = 'absolute';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.backgroundImage = `url('${this.foregroundImageDataUrl}')`;
+        overlay.style.backgroundSize = 'cover';
+        overlay.style.backgroundRepeat = 'no-repeat';
+        overlay.style.backgroundPosition = 'center center';
+        overlay.style.pointerEvents = 'none'; // Allow clicks to pass through
+        overlay.style.zIndex = '1000'; // High z-index to be on top of everything
+        
+        this.frameContainer.appendChild(overlay);
+    }
+
+    clearForegroundImage() {
+        this.foregroundImageDataUrl = null;
+        this.foregroundImageElement = null;
+        
+        // Remove overlay element
+        if (this.frameContainer) {
+            const existingOverlay = this.frameContainer.querySelector('.foreground-overlay');
+            if (existingOverlay) {
+                existingOverlay.remove();
+            }
+        }
+        
+        // Clear thumbnail
+        this.renderForegroundThumbnail();
+    }
+
+    renderForegroundThumbnail() {
+        if (!this.fgUploadButton) return;
+        
+        if (!this.foregroundImageDataUrl) {
+            // Reset to upload state
+            this.fgUploadButton.classList.remove('has-thumbnail');
+            this.fgUploadButton.style.removeProperty('background-image');
+            // Remove any existing remove button
+            const existingRemoveBtn = this.fgUploadButton.querySelector('.fg-thumb-remove');
+            if (existingRemoveBtn) {
+                existingRemoveBtn.remove();
+            }
+            return;
+        }
+
+        // Show thumbnail in button
+        this.fgUploadButton.classList.add('has-thumbnail');
+        this.fgUploadButton.style.backgroundImage = `url('${this.foregroundImageDataUrl}')`;
+        
+        // Add remove button if not already present
+        let removeBtn = this.fgUploadButton.querySelector('.fg-thumb-remove');
+        if (!removeBtn) {
+            removeBtn = document.createElement('button');
+            removeBtn.className = 'fg-thumb-remove';
+            removeBtn.textContent = '×';
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.clearForegroundImage();
+            });
+            this.fgUploadButton.appendChild(removeBtn);
+        }
     }
     
     initEventListeners() {
@@ -430,6 +640,26 @@ class ProjectTemplate {
                 }
             });
         }
+
+        // Background image upload
+        if (this.bgUploadButton && this.bgImageInput) {
+            this.bgUploadButton.addEventListener('click', () => {
+                this.bgImageInput.click();
+            });
+            this.bgImageInput.addEventListener('change', (e) => {
+                this.handleBackgroundImageUpload(e);
+            });
+        }
+
+        // Foreground image upload
+        if (this.fgUploadButton && this.fgImageInput) {
+            this.fgUploadButton.addEventListener('click', () => {
+                this.fgImageInput.click();
+            });
+            this.fgImageInput.addEventListener('change', (e) => {
+                this.handleForegroundImageUpload(e);
+            });
+        }
         
         // Export button
         this.exportBtn.addEventListener('click', () => {
@@ -584,8 +814,8 @@ class ProjectTemplate {
             this.ctx2D.globalCompositeOperation = 'source-over';
             this.ctx2D.globalAlpha = 1.0;
             
-            // If not in alpha mode, fill the background
-            if (!this.isAlphaBackground) {
+            // If not in alpha mode and no background image, fill the background
+            if (!this.isAlphaBackground && !this.backgroundImageDataUrl) {
                 const bgColor = this.currentBackgroundColor || '#121212';
                 this.ctx2D.fillStyle = bgColor;
                 this.ctx2D.fillRect(0, 0, this.canvas2D.width, this.canvas2D.height);
@@ -1546,7 +1776,7 @@ class ProjectTemplate {
         
         // Create scene
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x121212);
+        this.scene.background = this.isAlphaBackground ? null : new THREE.Color(0x121212);
         
         // Create camera
         this.camera = new THREE.PerspectiveCamera(75, frameSize.width / frameSize.height, 0.1, 1000);
@@ -1702,8 +1932,8 @@ class ProjectTemplate {
         this.currentBackgroundColor = color;
         
         if (this.scene) {
-            if (this.isAlphaBackground) {
-                this.scene.background = null; // Transparent background
+            if (this.isAlphaBackground || this.backgroundImageDataUrl) {
+                this.scene.background = null; // Transparent so CSS/image shows
             } else {
                 this.scene.background = new THREE.Color(color);
             }
@@ -1711,16 +1941,24 @@ class ProjectTemplate {
         
         // Also set the frame container background for modes that don't use Three.js (like shuffle mode)
         if (this.frameContainer) {
-            if (this.isAlphaBackground) {
-                this.frameContainer.classList.add('alpha-bg');
-                this.frameContainer.style.removeProperty('background-color');
+            if (this.backgroundImageDataUrl) {
+                // If an image is set, ensure it's displayed and color is not overriding
+                this.applyBackgroundImageStyles();
             } else {
-                this.frameContainer.classList.remove('alpha-bg');
-                this.frameContainer.style.backgroundColor = color;
-                // Use !important to override CSS rule
-                this.frameContainer.style.setProperty('background-color', color, 'important');
+                if (this.isAlphaBackground) {
+                    this.frameContainer.classList.add('alpha-bg');
+                    this.frameContainer.style.removeProperty('background-color');
+                    this.frameContainer.style.removeProperty('background-image');
+                } else {
+                    this.frameContainer.classList.remove('alpha-bg');
+                    this.frameContainer.style.removeProperty('background-image');
+                    this.frameContainer.style.backgroundColor = color;
+                    // Use !important to override CSS rule
+                    this.frameContainer.style.setProperty('background-color', color, 'important');
+                }
             }
         }
+        this.updateRendererClearAlphaForBackground();
         
         // If we have a 2D canvas (for spline mode), update its background
         if (this.canvas2D && this.currentPreset === 'follow-spline') {
@@ -1732,30 +1970,34 @@ class ProjectTemplate {
     setAlphaBackground(enabled) {
         this.isAlphaBackground = enabled;
         // Update Three.js renderer transparency
-        if (this.renderer) {
-            try {
-                this.renderer.setClearAlpha(enabled ? 0 : 1);
-            } catch (e) {
-                // Fallback for older Three versions
-                this.renderer.getContext().clearColor(0, 0, 0, enabled ? 0 : 1);
-            }
-        }
+        this.updateRendererClearAlphaForBackground();
 
         // Scene background
         if (this.scene) {
-            this.scene.background = enabled ? null : new THREE.Color(this.currentBackgroundColor || '#121212');
+            if (this.backgroundImageDataUrl || enabled) {
+                this.scene.background = null;
+            } else {
+                this.scene.background = new THREE.Color(this.currentBackgroundColor || '#121212');
+            }
         }
 
         // Frame container background and class
         if (this.frameContainer) {
-            if (enabled) {
-                this.frameContainer.classList.add('alpha-bg');
-                this.frameContainer.style.removeProperty('background-color');
+            if (this.backgroundImageDataUrl) {
+                // Background image takes precedence; keep it regardless of alpha toggle
+                this.applyBackgroundImageStyles();
             } else {
-                this.frameContainer.classList.remove('alpha-bg');
-                const color = this.currentBackgroundColor || '#121212';
-                this.frameContainer.style.backgroundColor = color;
-                this.frameContainer.style.setProperty('background-color', color, 'important');
+                if (enabled) {
+                    this.frameContainer.classList.add('alpha-bg');
+                    this.frameContainer.style.removeProperty('background-color');
+                    this.frameContainer.style.removeProperty('background-image');
+                } else {
+                    this.frameContainer.classList.remove('alpha-bg');
+                    const color = this.currentBackgroundColor || '#121212';
+                    this.frameContainer.style.removeProperty('background-image');
+                    this.frameContainer.style.backgroundColor = color;
+                    this.frameContainer.style.setProperty('background-color', color, 'important');
+                }
             }
         }
 
@@ -1764,6 +2006,16 @@ class ProjectTemplate {
             // In alpha mode, we keep canvas clear (transparent) and rely on checkerboard behind
             this.clearCanvas();
             this.drawSpline();
+        }
+    }
+
+    updateRendererClearAlphaForBackground() {
+        if (!this.renderer) return;
+        const shouldBeTransparent = this.isAlphaBackground || !!this.backgroundImageDataUrl;
+        try {
+            this.renderer.setClearAlpha(shouldBeTransparent ? 0 : 1);
+        } catch (e) {
+            this.renderer.getContext().clearColor(0, 0, 0, shouldBeTransparent ? 0 : 1);
         }
     }
     
@@ -2414,16 +2666,71 @@ class ProjectTemplate {
                 // Clear canvas
                 ctx.clearRect(0, 0, recordingCanvas.width, recordingCanvas.height);
                 
-                // Fill background color unless alpha background is enabled
-                if (!this.isAlphaBackground) {
+                // Fill background color unless alpha background is enabled or a background image is used
+                if (!this.isAlphaBackground && !this.backgroundImageDataUrl) {
                     const bgColorPicker = document.getElementById('backgroundColorPicker');
                     const bgColor = bgColorPicker ? bgColorPicker.value : '#121212';
                     ctx.fillStyle = bgColor;
                     ctx.fillRect(0, 0, recordingCanvas.width, recordingCanvas.height);
                 }
+                // If a background image is used, draw it to fill canvas
+                if (this.backgroundImageDataUrl) {
+                    const img = this.backgroundImageElement || new Image();
+                    if (!this.backgroundImageElement) {
+                        img.src = this.backgroundImageDataUrl;
+                        this.backgroundImageElement = img;
+                    }
+                    if (img.complete) {
+                        const sw = img.width;
+                        const sh = img.height;
+                        const dw = recordingCanvas.width;
+                        const dh = recordingCanvas.height;
+                        const sRatio = sw / sh;
+                        const dRatio = dw / dh;
+                        let drawW, drawH;
+                        if (sRatio > dRatio) {
+                            drawH = dh;
+                            drawW = dh * sRatio;
+                        } else {
+                            drawW = dw;
+                            drawH = dw / sRatio;
+                        }
+                        const dx = (dw - drawW) / 2;
+                        const dy = (dh - drawH) / 2;
+                        ctx.drawImage(img, dx, dy, drawW, drawH);
+                    }
+                }
                 
                 // Draw all image elements at original resolution
                 this.drawImagesOnCanvas(ctx, frameSize);
+                
+                // Draw foreground overlay if present
+                if (this.foregroundImageDataUrl) {
+                    const img = this.foregroundImageElement || new Image();
+                    if (!this.foregroundImageElement) {
+                        img.src = this.foregroundImageDataUrl;
+                        this.foregroundImageElement = img;
+                    }
+                    if (img.complete) {
+                        const sw = img.width;
+                        const sh = img.height;
+                        const dw = recordingCanvas.width;
+                        const dh = recordingCanvas.height;
+                        const sRatio = sw / sh;
+                        const dRatio = dw / dh;
+                        let drawW, drawH;
+                        if (sRatio > dRatio) {
+                            drawH = dh;
+                            drawW = dh * sRatio;
+                        } else {
+                            drawW = dw;
+                            drawH = dw / sRatio;
+                        }
+                        const dx = (dw - drawW) / 2;
+                        const dy = (dh - drawH) / 2;
+                        ctx.drawImage(img, dx, dy, drawW, drawH);
+                    }
+                }
             };
             
             // Start continuous updates for recording
@@ -2536,12 +2843,39 @@ class ProjectTemplate {
                 // Clear canvas
                 ctx.clearRect(0, 0, recordingCanvas.width, recordingCanvas.height);
                 
-                // Fill background color unless alpha background is enabled
-                if (!this.isAlphaBackground) {
+                // Fill background color unless alpha background is enabled or a background image is used
+                if (!this.isAlphaBackground && !this.backgroundImageDataUrl) {
                     const bgColorPicker = document.getElementById('backgroundColorPicker');
                     const bgColor = bgColorPicker ? bgColorPicker.value : '#121212';
                     ctx.fillStyle = bgColor;
                     ctx.fillRect(0, 0, recordingCanvas.width, recordingCanvas.height);
+                }
+                // If a background image is used, draw it to fill canvas
+                if (this.backgroundImageDataUrl) {
+                    const img = this.backgroundImageElement || new Image();
+                    if (!this.backgroundImageElement) {
+                        img.src = this.backgroundImageDataUrl;
+                        this.backgroundImageElement = img;
+                    }
+                    if (img.complete) {
+                        const sw = img.width;
+                        const sh = img.height;
+                        const dw = recordingCanvas.width;
+                        const dh = recordingCanvas.height;
+                        const sRatio = sw / sh;
+                        const dRatio = dw / dh;
+                        let drawW, drawH;
+                        if (sRatio > dRatio) {
+                            drawH = dh;
+                            drawW = dh * sRatio;
+                        } else {
+                            drawW = dw;
+                            drawH = dw / sRatio;
+                        }
+                        const dx = (dw - drawW) / 2;
+                        const dy = (dh - drawH) / 2;
+                        ctx.drawImage(img, dx, dy, drawW, drawH);
+                    }
                 }
                 
                 // Note: We don't draw the spline line in the recording - only the animated images
@@ -2556,6 +2890,34 @@ class ProjectTemplate {
                 
                 // Draw all animated image elements at original resolution
                 this.drawSplineImagesOnCanvas(ctx, frameSize);
+                
+                // Draw foreground overlay if present
+                if (this.foregroundImageDataUrl) {
+                    const img = this.foregroundImageElement || new Image();
+                    if (!this.foregroundImageElement) {
+                        img.src = this.foregroundImageDataUrl;
+                        this.foregroundImageElement = img;
+                    }
+                    if (img.complete) {
+                        const sw = img.width;
+                        const sh = img.height;
+                        const dw = recordingCanvas.width;
+                        const dh = recordingCanvas.height;
+                        const sRatio = sw / sh;
+                        const dRatio = dw / dh;
+                        let drawW, drawH;
+                        if (sRatio > dRatio) {
+                            drawH = dh;
+                            drawW = dh * sRatio;
+                        } else {
+                            drawW = dw;
+                            drawH = dw / sRatio;
+                        }
+                        const dx = (dw - drawW) / 2;
+                        const dy = (dh - drawH) / 2;
+                        ctx.drawImage(img, dx, dy, drawW, drawH);
+                    }
+                }
             };
             
             // Start continuous updates for recording
