@@ -2154,7 +2154,7 @@ class ProjectTemplate {
                     return;
                 }
                 canvas = this.renderer.domElement;
-                stream = canvas.captureStream(30);
+                stream = canvas.captureStream(60);
                 break;
                 
             case 'follow-spline':
@@ -2166,7 +2166,7 @@ class ProjectTemplate {
                     this.exportBtn.textContent = 'Export';
                     return;
                 }
-                stream = canvas.captureStream(30);
+                stream = canvas.captureStream(60);
                 break;
                 
             case 'cursor-trail':
@@ -2179,7 +2179,7 @@ class ProjectTemplate {
                     this.exportBtn.textContent = 'Export';
                     return;
                 }
-                stream = canvas.captureStream(30);
+                stream = canvas.captureStream(60);
                 break;
                 
             default:
