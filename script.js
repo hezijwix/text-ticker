@@ -1423,7 +1423,13 @@ class ProjectTemplate {
     }
     
     randomizeImagePosition(img) {
-        const frameSize = this.getFrameSize();
+        // Use actual displayed frame dimensions instead of configured dimensions
+        // This fixes positioning issues when frame is scaled down by responsive constraints
+        const frameRect = this.frameContainer.getBoundingClientRect();
+        const frameSize = {
+            width: frameRect.width,
+            height: frameRect.height
+        };
         const margin = 20; // Margin from edges
         
         // Get image dimensions (fallback to 100x100 if not loaded yet)
@@ -1640,7 +1646,12 @@ class ProjectTemplate {
     }
     
     repositionShuffleImagesWithinBounds() {
-        const frameSize = this.getFrameSize();
+        // Use actual displayed frame dimensions instead of configured dimensions
+        const frameRect = this.frameContainer.getBoundingClientRect();
+        const frameSize = {
+            width: frameRect.width,
+            height: frameRect.height
+        };
         const margin = 20;
         
         this.shuffleImages.forEach((img) => {
@@ -2146,14 +2157,14 @@ class ProjectTemplate {
         
         switch (this.currentPreset) {
             case 'ring':
-                // Ring mode uses Three.js renderer
-                if (!this.renderer || !this.renderer.domElement) {
-                    alert('Three.js canvas not ready for recording');
+                // Ring mode needs a properly sized canvas for recording
+                canvas = this.createRingRecordingCanvas();
+                if (!canvas) {
+                    alert('Unable to create recording canvas for ring mode');
                     this.exportBtn.disabled = false;
                     this.exportBtn.textContent = 'Export';
                     return;
                 }
-                canvas = this.renderer.domElement;
                 stream = canvas.captureStream(60);
                 break;
                 
@@ -2260,6 +2271,8 @@ class ProjectTemplate {
                 this.stopFrameContainerRecording();
             } else if (this.currentPreset === 'follow-spline') {
                 this.stopSplineRecording();
+            } else if (this.currentPreset === 'ring') {
+                this.stopRingRecording();
             }
             
             const isMP4 = selectedFormat.includes('mp4');
@@ -2988,6 +3001,141 @@ class ProjectTemplate {
             return null;
         }
     }
+
+    createRingRecordingCanvas() {
+        try {
+            // Create a canvas to capture Three.js ring mode at proper size
+            const recordingCanvas = document.createElement('canvas');
+            const ctx = recordingCanvas.getContext('2d');
+            
+            // Use configured frame size to match PNG sequence export behavior
+            const frameSize = this.getFrameSize();
+            recordingCanvas.width = frameSize.width;
+            recordingCanvas.height = frameSize.height;
+            
+            console.log('Created ring recording canvas at original resolution:', recordingCanvas.width + 'x' + recordingCanvas.height);
+            
+            // Store original renderer settings to restore later
+            const originalSize = {
+                width: this.renderer.domElement.width,
+                height: this.renderer.domElement.height
+            };
+            const originalPixelRatio = this.renderer.getPixelRatio();
+            
+            // Create a function to continuously update this canvas
+            const updateCanvas = () => {
+                // Clear canvas
+                ctx.clearRect(0, 0, recordingCanvas.width, recordingCanvas.height);
+                
+                // Draw background if not alpha mode
+                if (!this.isAlphaBackground) {
+                    if (this.backgroundImageDataUrl) {
+                        // Draw background image
+                        const img = this.backgroundImageElement || new Image();
+                        if (!this.backgroundImageElement) {
+                            img.src = this.backgroundImageDataUrl;
+                            this.backgroundImageElement = img;
+                        }
+                        if (img.complete) {
+                            const sw = img.width;
+                            const sh = img.height;
+                            const dw = recordingCanvas.width;
+                            const dh = recordingCanvas.height;
+                            const sRatio = sw / sh;
+                            const dRatio = dw / dh;
+                            let drawW, drawH;
+                            if (sRatio > dRatio) {
+                                drawH = dh;
+                                drawW = dh * sRatio;
+                            } else {
+                                drawW = dw;
+                                drawH = dw / sRatio;
+                            }
+                            const dx = (dw - drawW) / 2;
+                            const dy = (dh - drawH) / 2;
+                            ctx.drawImage(img, dx, dy, drawW, drawH);
+                        }
+                    } else {
+                        // Draw background color
+                        const bgColor = this.currentBackgroundColor || '#121212';
+                        ctx.fillStyle = bgColor;
+                        ctx.fillRect(0, 0, recordingCanvas.width, recordingCanvas.height);
+                    }
+                }
+                
+                // Temporarily resize renderer to match recording canvas
+                this.renderer.setSize(frameSize.width, frameSize.height, false);
+                this.renderer.setPixelRatio(1);
+                
+                // Update camera aspect ratio for recording resolution (matches PNG sequence export)
+                this.camera.aspect = frameSize.width / frameSize.height;
+                this.camera.updateProjectionMatrix();
+                
+                // Render Three.js scene
+                this.renderer.render(this.scene, this.camera);
+                
+                // Draw the Three.js canvas onto our recording canvas
+                ctx.drawImage(this.renderer.domElement, 0, 0);
+                
+                // Draw foreground overlay if present
+                if (this.foregroundImageDataUrl) {
+                    const img = this.foregroundImageElement || new Image();
+                    if (!this.foregroundImageElement) {
+                        img.src = this.foregroundImageDataUrl;
+                        this.foregroundImageElement = img;
+                    }
+                    if (img.complete) {
+                        const sw = img.width;
+                        const sh = img.height;
+                        const dw = recordingCanvas.width;
+                        const dh = recordingCanvas.height;
+                        const sRatio = sw / sh;
+                        const dRatio = dw / dh;
+                        let drawW, drawH;
+                        if (sRatio > dRatio) {
+                            drawH = dh;
+                            drawW = dh * sRatio;
+                        } else {
+                            drawW = dw;
+                            drawH = dw / sRatio;
+                        }
+                        const dx = (dw - drawW) / 2;
+                        const dy = (dh - drawH) / 2;
+                        ctx.drawImage(img, dx, dy, drawW, drawH);
+                    }
+                }
+            };
+            
+            // Start continuous updates for recording at 60 FPS
+            this.ringRecordingUpdateInterval = setInterval(updateCanvas, 1000/60);
+            
+            // Store cleanup function to restore renderer settings
+            this.ringRecordingCleanup = () => {
+                if (this.ringRecordingUpdateInterval) {
+                    clearInterval(this.ringRecordingUpdateInterval);
+                    this.ringRecordingUpdateInterval = null;
+                }
+                
+                // Restore original renderer settings
+                this.renderer.setSize(originalSize.width, originalSize.height, false);
+                this.renderer.setPixelRatio(originalPixelRatio);
+                
+                // Restore camera aspect ratio for display
+                const displayFrameSize = this.getFrameSize();
+                this.camera.aspect = displayFrameSize.width / displayFrameSize.height;
+                this.camera.updateProjectionMatrix();
+            };
+            
+            // Initial update
+            updateCanvas();
+            
+            return recordingCanvas;
+            
+        } catch (error) {
+            console.error('Failed to create ring recording canvas:', error);
+            return null;
+        }
+    }
     
     drawSplineOnRecordingCanvas(ctx) {
         if (!this.currentSpline || this.currentSpline.length < 2) return;
@@ -3043,6 +3191,13 @@ class ProjectTemplate {
         if (this.splineRecordingUpdateInterval) {
             clearInterval(this.splineRecordingUpdateInterval);
             this.splineRecordingUpdateInterval = null;
+        }
+    }
+
+    stopRingRecording() {
+        if (this.ringRecordingCleanup) {
+            this.ringRecordingCleanup();
+            this.ringRecordingCleanup = null;
         }
     }
     
