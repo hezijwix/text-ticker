@@ -179,6 +179,9 @@ class ProjectTemplate {
         this.seed = 0; // Random seed for reproducible shuffling
         this.randomSeed = 0; // Current seed state for seeded random generator
         
+        // Drag and drop properties
+        this.draggedElement = null; // Currently dragged thumbnail element
+        
         this.initEventListeners();
         this.initThreeJS();
         this.initFFmpeg();
@@ -898,6 +901,7 @@ class ProjectTemplate {
         const thumbnailItem = document.createElement('div');
         thumbnailItem.className = 'thumbnail-item';
         thumbnailItem.dataset.imageId = imageData.id;
+        thumbnailItem.draggable = true;
         
         const img = document.createElement('img');
         img.className = 'thumbnail-image';
@@ -911,6 +915,9 @@ class ProjectTemplate {
             e.stopPropagation();
             this.removeImage(imageData.id);
         });
+        
+        // Add drag and drop event listeners
+        this.addDragAndDropListeners(thumbnailItem);
         
         thumbnailItem.appendChild(img);
         thumbnailItem.appendChild(removeBtn);
@@ -978,6 +985,133 @@ class ProjectTemplate {
                 this.showShufflePlaceholder();
             }
         }
+    }
+
+    addDragAndDropListeners(thumbnailItem) {
+        thumbnailItem.addEventListener('dragstart', (e) => {
+            thumbnailItem.classList.add('dragging');
+            this.draggedElement = thumbnailItem;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', thumbnailItem.dataset.imageId);
+            
+            // Show all drop dividers
+            this.showDropDividers();
+        });
+
+        thumbnailItem.addEventListener('dragend', (e) => {
+            thumbnailItem.classList.remove('dragging');
+            this.hideDropDividers();
+            this.draggedElement = null;
+        });
+
+        // Add dragover and drop to the thumbnail itself for reordering
+        thumbnailItem.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            if (this.draggedElement && this.draggedElement !== thumbnailItem) {
+                e.dataTransfer.dropEffect = 'move';
+            }
+        });
+
+        thumbnailItem.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (this.draggedElement && this.draggedElement !== thumbnailItem) {
+                this.reorderToPosition(thumbnailItem);
+            }
+        });
+    }
+
+    showDropDividers() {
+        // Add visual dividers between thumbnails without creating new elements
+        this.thumbnailsContainer.classList.add('showing-dividers');
+    }
+
+    hideDropDividers() {
+        // Remove visual dividers
+        this.thumbnailsContainer.classList.remove('showing-dividers');
+    }
+
+    reorderToPosition(targetThumbnail) {
+        if (!this.draggedElement) return;
+        
+        const draggedId = this.draggedElement.dataset.imageId;
+        const targetId = targetThumbnail.dataset.imageId;
+        
+        const draggedIndex = this.uploadedImages.findIndex(img => img.id == draggedId);
+        const targetIndex = this.uploadedImages.findIndex(img => img.id == targetId);
+        
+        if (draggedIndex === -1 || targetIndex === -1 || draggedIndex === targetIndex) return;
+        
+        // Remove the dragged item from the array
+        const [draggedImage] = this.uploadedImages.splice(draggedIndex, 1);
+        
+        // Insert at target position
+        this.uploadedImages.splice(targetIndex, 0, draggedImage);
+        
+        // Update DOM order by moving the dragged element
+        if (draggedIndex < targetIndex) {
+            // Moving forward - insert after target
+            targetThumbnail.parentNode.insertBefore(this.draggedElement, targetThumbnail.nextSibling);
+        } else {
+            // Moving backward - insert before target
+            targetThumbnail.parentNode.insertBefore(this.draggedElement, targetThumbnail);
+        }
+        
+        // Update gallery display based on current mode
+        this.updateGalleryAfterReorder();
+    }
+
+    updateGalleryAfterReorder() {
+        switch (this.currentPreset) {
+            case 'ring':
+                // Recreate all image planes in new order
+                this.clearImagePlanes();
+                this.uploadedImages.forEach(imageData => {
+                    this.createImagePlane(imageData);
+                });
+                this.updateImagePositions();
+                break;
+                
+            case 'follow-spline':
+                // Recreate images along spline with new order
+                if (this.splinePoints.length > 0) {
+                    this.createImagesAlongSpline();
+                }
+                break;
+                
+            case 'cursor-trail':
+                // Recreate trail images with new order
+                this.createTrailImages();
+                break;
+                
+            case 'shuffle':
+                // Recreate shuffle images with new order
+                this.clearShuffleImages();
+                this.uploadedImages.forEach((imageData, index) => {
+                    this.createShuffleImageElement(imageData, index);
+                });
+                // Apply current shuffle state
+                this.performShuffle();
+                break;
+        }
+    }
+
+    clearImagePlanes() {
+        // Remove all image planes from the scene
+        const planesToRemove = [];
+        this.pathGroup.children.forEach(child => {
+            if (child.userData && child.userData.imageId) {
+                planesToRemove.push(child);
+            }
+        });
+        planesToRemove.forEach(plane => {
+            this.pathGroup.remove(plane);
+            if (plane.geometry) plane.geometry.dispose();
+            if (plane.material) {
+                if (plane.material.map) plane.material.map.dispose();
+                plane.material.dispose();
+            }
+        });
+        this.imagePlanes = [];
     }
     
     handlePresetChange(preset) {

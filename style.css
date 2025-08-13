@@ -652,8 +652,18 @@ body {
     overflow: hidden;
     border: 1px solid var(--button-subtle-border);
     background-color: var(--button-subtle);
-    cursor: pointer;
+    cursor: grab;
     transition: all 0.15s ease;
+}
+
+.thumbnail-item:active {
+    cursor: grabbing;
+}
+
+.thumbnail-item.dragging {
+    opacity: 0.5;
+    transform: rotate(5deg) scale(1.1);
+    z-index: 1000;
 }
 
 .thumbnail-item:hover {
@@ -724,6 +734,39 @@ body {
 
 .thumbnails-container::-webkit-scrollbar-thumb:hover {
     background: var(--text-color);
+}
+
+/* Drop dividers for drag and drop reordering */
+.thumbnails-container.showing-dividers .thumbnail-item:not(.dragging) {
+    position: relative;
+}
+
+.thumbnails-container.showing-dividers .thumbnail-item:not(.dragging):before {
+    content: '';
+    position: absolute;
+    left: -4px;
+    top: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--button-primary);
+    border-radius: 2px;
+    opacity: 0.6;
+    animation: dividerPulse 1s ease-in-out infinite alternate;
+}
+
+.thumbnails-container.showing-dividers .thumbnail-item:not(.dragging):hover:before {
+    opacity: 1;
+    background: var(--button-hover);
+    box-shadow: 0 0 8px rgba(229, 229, 229, 0.5);
+}
+
+@keyframes dividerPulse {
+    from {
+        opacity: 0.4;
+    }
+    to {
+        opacity: 0.8;
+    }
 }
 
 /* Preset Control Row */
