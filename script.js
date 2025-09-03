@@ -28,6 +28,14 @@ class ProjectTemplate {
         this.trailSpeedValue = document.getElementById('trailSpeedValue');
         this.trailScaleSlider = document.getElementById('trailScaleSlider');
         this.trailScaleValue = document.getElementById('trailScaleValue');
+        this.animateScaleCheckbox = document.getElementById('animateScaleCheckbox');
+        this.animateScaleToggleText = document.querySelector('#animateScaleToggle .toggle-text');
+        this.scaleFrequencySlider = document.getElementById('scaleFrequencySlider');
+        this.scaleFrequencyValue = document.getElementById('scaleFrequencyValue');
+        this.scaleAmplitudeSlider = document.getElementById('scaleAmplitudeSlider');
+        this.scaleAmplitudeValue = document.getElementById('scaleAmplitudeValue');
+        this.scaleFrequencyRow = document.getElementById('scaleFrequencyRow');
+        this.scaleAmplitudeRow = document.getElementById('scaleAmplitudeRow');
         
         // Shuffle controls
         this.shuffleSpeedSlider = document.getElementById('shuffleSpeedSlider');
@@ -144,6 +152,10 @@ class ProjectTemplate {
         this.trailImages = []; // Array to store trail image elements with target positions
         this.trailAnimationId = null; // Track animation frame
         this.isTrackingCursor = false; // Whether cursor tracking is active
+        this.animateScale = false; // Whether scale animation is enabled
+        this.scaleFrequency = 1.0; // Frequency of sine wave animation (Hz)
+        this.scaleAmplitude = 0.5; // Amplitude of scale animation (0-2.0)
+        this.animationStartTime = null; // Start time for consistent sine wave calculation
         this.mouseInCanvas = false; // Whether mouse is in canvas
         
         // Gallery properties
@@ -464,6 +476,35 @@ class ProjectTemplate {
             this.trailImageScale = parseFloat(e.target.value);
             this.trailScaleValue.textContent = this.trailImageScale.toFixed(1);
             this.updateTrailImageScales();
+        });
+        
+        // Scale animation controls
+        this.animateScaleCheckbox.addEventListener('change', (e) => {
+            this.animateScale = e.target.checked;
+            this.animateScaleToggleText.textContent = this.animateScale ? 'ON' : 'OFF';
+            
+            // Show/hide frequency and amplitude controls
+            if (this.animateScale) {
+                this.scaleFrequencyRow.style.display = 'flex';
+                this.scaleAmplitudeRow.style.display = 'flex';
+                // Initialize animation start time when enabled
+                this.animationStartTime = performance.now();
+            } else {
+                this.scaleFrequencyRow.style.display = 'none';
+                this.scaleAmplitudeRow.style.display = 'none';
+                // Reset animation start time
+                this.animationStartTime = null;
+            }
+        });
+        
+        this.scaleFrequencySlider.addEventListener('input', (e) => {
+            this.scaleFrequency = parseFloat(e.target.value);
+            this.scaleFrequencyValue.textContent = this.scaleFrequency.toFixed(1);
+        });
+        
+        this.scaleAmplitudeSlider.addEventListener('input', (e) => {
+            this.scaleAmplitude = parseFloat(e.target.value);
+            this.scaleAmplitudeValue.textContent = this.scaleAmplitude.toFixed(1);
         });
         
         // Shuffle controls
@@ -1310,6 +1351,11 @@ class ProjectTemplate {
     startCursorTracking() {
         this.isTrackingCursor = true;
         
+        // Initialize animation start time for scale animation
+        if (this.animateScale) {
+            this.animationStartTime = performance.now();
+        }
+        
         // Add mouse move event listeners to the frame container
         this.frameContainer.addEventListener('mousemove', this.trackCursor.bind(this));
         this.frameContainer.addEventListener('mouseenter', this.onMouseEnter.bind(this));
@@ -1432,12 +1478,47 @@ class ProjectTemplate {
             }
             
             // Animate each image towards its target
-            this.trailImages.forEach(trailImg => {
+            this.trailImages.forEach((trailImg, index) => {
                 // Lerp towards target position
                 const lerpFactor = this.trailAnimationSpeed * 0.1; // Convert speed to 0-0.2 range
                 
                 trailImg.currentX += (trailImg.targetX - trailImg.currentX) * lerpFactor;
                 trailImg.currentY += (trailImg.targetY - trailImg.currentY) * lerpFactor;
+                
+                // Calculate scale (both static and animated)
+                let finalScale = this.trailImageScale;
+                
+                if (this.animateScale && this.animationStartTime !== null) {
+                    // Calculate current time in seconds since animation started
+                    const currentTime = (performance.now() - this.animationStartTime) / 1000;
+                    
+                    // Calculate phase offset for wave effect - each image is offset by its position in trail
+                    const phaseOffset = (index / this.trailImages.length) * 2 * Math.PI;
+                    
+                    // Calculate sine wave value
+                    const sineValue = Math.sin((currentTime * this.scaleFrequency * 2 * Math.PI) + phaseOffset);
+                    
+                    // Apply amplitude to sine wave and add to base scale
+                    const animatedScaleMultiplier = 1 + (sineValue * this.scaleAmplitude);
+                    finalScale = this.trailImageScale * animatedScaleMultiplier;
+                }
+                
+                // Update image scale if needed
+                const img = trailImg.element;
+                if (img.naturalWidth && img.naturalHeight) {
+                    const aspectRatio = img.naturalWidth / img.naturalHeight;
+                    const baseSize = 80 * finalScale; // Use final calculated scale
+                    
+                    if (aspectRatio > 1) {
+                        // Landscape
+                        img.style.width = baseSize + 'px';
+                        img.style.height = (baseSize / aspectRatio) + 'px';
+                    } else {
+                        // Portrait
+                        img.style.width = (baseSize * aspectRatio) + 'px';
+                        img.style.height = baseSize + 'px';
+                    }
+                }
                 
                 // Update DOM position
                 const imgWidth = trailImg.element.offsetWidth || 80;
