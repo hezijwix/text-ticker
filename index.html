@@ -84,7 +84,6 @@
                     <select id="shapeTypeSelect" class="preset-select">
                         <option value="circle">Circle</option>
                         <option value="rectangle">Rectangle</option>
-                        <option value="triangle">Triangle</option>
                     </select>
                 </div>
             </div>
@@ -120,20 +119,28 @@
                     </div>
                 </div>
                 
-                <!-- Triangle Properties -->
-                <div id="triangleProperties" class="shape-properties-group" style="display: none;">
-                    <div class="slider-control-row">
-                        <label for="triangleSizeSlider">Size:</label>
-                        <input type="range" id="triangleSizeSlider" min="100" max="400" step="10" value="200" class="control-slider">
-                        <span id="triangleSizeValue">200</span>
-                    </div>
-                </div>
                 
                 <!-- Common Rotation Control -->
                 <div class="slider-control-row">
                     <label for="rotationSlider">Rotation:</label>
                     <input type="range" id="rotationSlider" min="0" max="360" step="1" value="0" class="control-slider">
                     <span id="rotationValue">0°</span>
+                </div>
+            </div>
+
+            <div class="controls-section">
+                <h4>Animation</h4>
+                <div class="slider-control-row">
+                    <label for="animationSpeedSlider">Animation Speed:</label>
+                    <input type="range" id="animationSpeedSlider" min="0" max="5.0" step="0.1" value="1.0" class="control-slider">
+                    <span id="animationSpeedValue">1.0x</span>
+                </div>
+                <div class="preset-control-row">
+                    <label for="animationDirectionSelect">Direction:</label>
+                    <select id="animationDirectionSelect" class="preset-select">
+                        <option value="clockwise">Clockwise</option>
+                        <option value="counterclockwise">Counterclockwise</option>
+                    </select>
                 </div>
             </div>
 

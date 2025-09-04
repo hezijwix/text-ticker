@@ -37,18 +37,19 @@ class TextTickerTool {
         this.rectCornerSlider = document.getElementById('rectCornerSlider');
         this.rectCornerValue = document.getElementById('rectCornerValue');
         
-        // Shape controls - Triangle
-        this.triangleSizeSlider = document.getElementById('triangleSizeSlider');
-        this.triangleSizeValue = document.getElementById('triangleSizeValue');
         
         // Common rotation control
         this.rotationSlider = document.getElementById('rotationSlider');
         this.rotationValue = document.getElementById('rotationValue');
         
+        // Animation controls
+        this.animationSpeedSlider = document.getElementById('animationSpeedSlider');
+        this.animationSpeedValue = document.getElementById('animationSpeedValue');
+        this.animationDirectionSelect = document.getElementById('animationDirectionSelect');
+        
         // Shape property groups for dynamic visibility
         this.circleProperties = document.getElementById('circleProperties');
         this.rectangleProperties = document.getElementById('rectangleProperties');
-        this.triangleProperties = document.getElementById('triangleProperties');
         
         // Text Ribbon controls
         this.ribbonModeSelect = document.getElementById('ribbonModeSelect');
@@ -117,9 +118,6 @@ class TextTickerTool {
                 width: 300,
                 height: 200,
                 cornerRadius: 0
-            },
-            triangle: {
-                size: 200
             }
         };
         
@@ -127,6 +125,13 @@ class TextTickerTool {
         this.ribbonMode = "character";  // "off", "character", "shapePath"
         this.ribbonWidth = 0.25;  // Proportional to font size
         this.ribbonColor = "#ff0000";
+        
+        // Animation properties
+        this.animationSpeed = 1.0;  // Speed multiplier (0 = stopped, higher = faster)
+        this.animationDirection = "clockwise";  // "clockwise" or "counterclockwise"
+        this.animationOffset = 0;  // Current animation position along path
+        this.lastAnimationTime = 0;  // For time-based animation
+        this.animationFrameId = null;  // For requestAnimationFrame
         
         // Export properties
         this.preferredExportFormat = 'auto';
@@ -151,6 +156,9 @@ class TextTickerTool {
         
         // Initialize manual zoom to match the slider value
         this.manualZoom = parseFloat(this.zoomSlider.value) || 1.0;
+        
+        // Initialize animation timing
+        this.lastAnimationTime = 0;
         
         this.createP5Instance();
         this.setupEventListeners();
@@ -200,13 +208,39 @@ class TextTickerTool {
                 
                 // Set initial text properties
                 p.textAlign(p.CENTER, p.CENTER);
-                p.noLoop(); // Stop continuous draw loop
+                
+                // Initialize animation timing for P5.js
+                self.lastAnimationTime = p.millis();
+                
+                // Enable P5.js draw loop for animation
                 self.renderText();
                 
             };
             
             p.draw = () => {
-                // This should not run continuously
+                // Update animation offset based on speed and direction
+                if (self.animationSpeed > 0) {
+                    const currentTime = p.millis();
+                    const deltaTime = (currentTime - self.lastAnimationTime) / 1000; // Convert to seconds
+                    
+                    // Base speed: 1.0x = 60 degrees per second (1 full rotation every 6 seconds)
+                    const baseDegreesPerSecond = 60;
+                    const speedMultiplier = self.animationSpeed;
+                    const directionMultiplier = self.animationDirection === "clockwise" ? 1 : -1;
+                    
+                    const deltaOffset = baseDegreesPerSecond * speedMultiplier * directionMultiplier * deltaTime;
+                    self.animationOffset = (self.animationOffset + deltaOffset) % 360;
+                    
+                    // Ensure positive values for calculations
+                    if (self.animationOffset < 0) {
+                        self.animationOffset += 360;
+                    }
+                    
+                    self.lastAnimationTime = currentTime;
+                }
+                
+                // Render the current frame
+                self.renderText();
             };
         };
         
@@ -311,18 +345,22 @@ class TextTickerTool {
             this.renderText();
         });
         
-        // Triangle controls
-        this.triangleSizeSlider.addEventListener('input', () => {
-            this.shapeParameters.triangle.size = parseFloat(this.triangleSizeSlider.value);
-            this.triangleSizeValue.textContent = this.shapeParameters.triangle.size;
-            this.renderText();
-        });
         
         // Common rotation control
         this.rotationSlider.addEventListener('input', () => {
             this.currentRotation = parseFloat(this.rotationSlider.value);
             this.rotationValue.textContent = this.currentRotation + '°';
             this.renderText();
+        });
+        
+        // Animation controls
+        this.animationSpeedSlider.addEventListener('input', () => {
+            this.animationSpeed = parseFloat(this.animationSpeedSlider.value);
+            this.animationSpeedValue.textContent = this.animationSpeed.toFixed(1) + 'x';
+        });
+        
+        this.animationDirectionSelect.addEventListener('change', () => {
+            this.animationDirection = this.animationDirectionSelect.value;
         });
         
         // Text Ribbon controls
@@ -548,6 +586,8 @@ class TextTickerTool {
         this.updateCombinedZoom();
     }
     
+    // Animation now handled by P5.js draw loop
+    
     renderText() {
         
         if (!this.p5Instance) {
@@ -623,9 +663,11 @@ class TextTickerTool {
         const xHeightOffset = baseXHeightOffset + this.xHeightDebugOffset; // Add debug adjustment
         
         const angleStep = (2 * Math.PI) / text.length;
+        // Convert animation offset from degrees to radians and apply to character positioning
+        const animationOffsetRadians = (this.animationOffset * Math.PI) / 180;
         
         for (let i = 0; i < text.length; i++) {
-            const angle = angleStep * i;
+            const angle = angleStep * i + animationOffsetRadians;
             const x = radius * Math.cos(angle);
             const y = radius * Math.sin(angle);
             
@@ -644,7 +686,6 @@ class TextTickerTool {
         // Hide all shape property groups
         this.circleProperties.style.display = 'none';
         this.rectangleProperties.style.display = 'none';
-        this.triangleProperties.style.display = 'none';
         
         // Show the current shape's properties
         switch (this.currentShape) {
@@ -653,9 +694,6 @@ class TextTickerTool {
                 break;
             case 'rectangle':
                 this.rectangleProperties.style.display = 'block';
-                break;
-            case 'triangle':
-                this.triangleProperties.style.display = 'block';
                 break;
         }
         
@@ -668,9 +706,6 @@ class TextTickerTool {
                 break;
             case 'rectangle':
                 this.drawTextOnRectangle(p);
-                break;
-            case 'triangle':
-                this.drawTextOnTriangle(p);
                 break;
         }
     }
@@ -721,8 +756,11 @@ class TextTickerTool {
             2 * (width + height);
         const charSpacing = perimeter / text.length; // Distribute evenly around closed path
         
+        // Convert animation offset from degrees to distance along perimeter
+        const animationOffsetDistance = (this.animationOffset / 360) * perimeter;
+        
         for (let i = 0; i < text.length; i++) {
-            const distanceAlongPerimeter = i * charSpacing;
+            const distanceAlongPerimeter = (i * charSpacing + animationOffsetDistance) % perimeter;
             const pathPoint = pathCalculator(distanceAlongPerimeter, width, height, cornerRadius);
             
             ctx.save();
@@ -888,104 +926,7 @@ class TextTickerTool {
         return { x, y, angle };
     }
     
-    drawTextOnTriangle(p) {
-        const text = this.currentText;
-        const size = this.shapeParameters.triangle.size;
-        const rotation = this.currentRotation * (Math.PI / 180);
-        
-        
-        // Use Canvas 2D API for variable font support
-        const canvas = p.canvas;
-        const ctx = canvas.getContext('2d');
-        
-        // Save current canvas state
-        ctx.save();
-        
-        // Center coordinates
-        const centerX = p.width / 2;
-        const centerY = p.height / 2;
-        
-        // Move to center and apply rotation
-        ctx.translate(centerX, centerY);
-        ctx.rotate(rotation);
-        
-        // Set font properties
-        ctx.fillStyle = this.currentTextColor;
-        ctx.font = `${this.currentFontWeight} ${this.currentFontSize}px "${this.currentFontFamily}", sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'alphabetic'; // Changed from 'middle' for consistency
-        
-        // Calculate font metrics for proper vertical centering
-        const metrics = ctx.measureText('Mg');
-        const fontHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
-        const baseXHeightOffset = -fontHeight / 2 + metrics.actualBoundingBoxAscent;
-        const xHeightOffset = baseXHeightOffset + this.xHeightDebugOffset; // Add debug adjustment
-        
-        // Calculate triangle perimeter for text distribution
-        const sideLength = size;
-        const perimeter = 3 * sideLength;
-        const charSpacing = perimeter / text.length;
-        
-        for (let i = 0; i < text.length; i++) {
-            const distanceAlongPerimeter = i * charSpacing;
-            const pathPoint = this.getTrianglePathPoint(distanceAlongPerimeter, size);
-            
-            ctx.save();
-            ctx.translate(pathPoint.x, pathPoint.y);
-            ctx.rotate(pathPoint.angle);
-            ctx.fillText(text[i], 0, xHeightOffset);
-            ctx.restore();
-        }
-        
-        // Restore canvas state
-        ctx.restore();
-    }
     
-    getTrianglePathPoint(distance, size) {
-        const sideLength = size;
-        const height = (Math.sqrt(3) / 2) * sideLength;
-        const perimeter = 3 * sideLength;
-        
-        // Normalize distance to be within perimeter
-        const normalizedDistance = distance % perimeter;
-        
-        // Equilateral triangle vertices (pointing up)
-        const vertices = [
-            { x: 0, y: -height / 2 },                    // Top vertex
-            { x: -sideLength / 2, y: height / 2 },       // Bottom left
-            { x: sideLength / 2, y: height / 2 }         // Bottom right
-        ];
-        
-        let x, y, angle;
-        
-        if (normalizedDistance <= sideLength) {
-            // Side 1: Top to bottom-right
-            const progress = normalizedDistance / sideLength;
-            const start = vertices[0];
-            const end = vertices[2];
-            x = start.x + progress * (end.x - start.x);
-            y = start.y + progress * (end.y - start.y);
-            angle = Math.atan2(end.y - start.y, end.x - start.x); // Use the tangent angle without additional rotation
-        } else if (normalizedDistance <= 2 * sideLength) {
-            // Side 2: Bottom-right to bottom-left
-            const progress = (normalizedDistance - sideLength) / sideLength;
-            const start = vertices[2];
-            const end = vertices[1];
-            x = start.x + progress * (end.x - start.x);
-            y = start.y + progress * (end.y - start.y);
-            angle = Math.atan2(end.y - start.y, end.x - start.x); // Use the tangent angle without additional rotation
-        } else {
-            // Side 3: Bottom-left to top
-            const progress = (normalizedDistance - 2 * sideLength) / sideLength;
-            const start = vertices[1];
-            const end = vertices[0];
-            x = start.x + progress * (end.x - start.x);
-            y = start.y + progress * (end.y - start.y);
-            angle = Math.atan2(end.y - start.y, end.x - start.x); // Use the tangent angle without additional rotation
-        }
-        
-        return { x, y, angle };
-    }
     
     drawShapePathRibbon(p) {
         const rotation = this.currentRotation * (Math.PI / 180);
@@ -1015,9 +956,6 @@ class TextTickerTool {
                 break;
             case 'rectangle':
                 this.drawRectanglePathRibbon(ctx);
-                break;
-            case 'triangle':
-                this.drawTrianglePathRibbon(ctx);
                 break;
         }
         
@@ -1049,27 +987,6 @@ class TextTickerTool {
         ctx.stroke();
     }
     
-    drawTrianglePathRibbon(ctx) {
-        const size = this.shapeParameters.triangle.size;
-        
-        // Calculate triangle vertices (equilateral triangle)
-        const height = size * Math.sqrt(3) / 2;
-        const vertices = [
-            { x: 0, y: -height * 2/3 },           // Top vertex
-            { x: -size/2, y: height * 1/3 },      // Bottom left
-            { x: size/2, y: height * 1/3 }        // Bottom right
-        ];
-        
-        ctx.beginPath();
-        
-        // Always draw regular triangle with sharp corners
-        ctx.moveTo(vertices[0].x, vertices[0].y);
-        ctx.lineTo(vertices[1].x, vertices[1].y);
-        ctx.lineTo(vertices[2].x, vertices[2].y);
-        ctx.closePath();
-        
-        ctx.stroke();
-    }
     
     drawCharacterRibbon(p) {
         const text = this.currentText;
@@ -1129,18 +1046,17 @@ class TextTickerTool {
             case 'rectangle':
                 this.drawRectangleRibbon(ctx, text, borderWidth);
                 break;
-            case 'triangle':
-                this.drawTriangleRibbon(ctx, text, borderWidth);
-                break;
         }
     }
     
     drawCircleRibbon(ctx, text, borderWidth) {
         const radius = this.shapeParameters.circle.radius;
         const angleStep = (2 * Math.PI) / text.length;
+        // Convert animation offset from degrees to radians and apply to character positioning
+        const animationOffsetRadians = (this.animationOffset * Math.PI) / 180;
         
         for (let i = 0; i < text.length; i++) {
-            const angle = angleStep * i;
+            const angle = angleStep * i + animationOffsetRadians;
             const x = radius * Math.cos(angle);
             const y = radius * Math.sin(angle);
             
@@ -1164,26 +1080,17 @@ class TextTickerTool {
             2 * (width + height);
         const charSpacing = perimeter / text.length;
         
+        // Convert animation offset from degrees to distance along perimeter
+        const animationOffsetDistance = (this.animationOffset / 360) * perimeter;
+        
         for (let i = 0; i < text.length; i++) {
-            const distanceAlongPerimeter = i * charSpacing;
+            const distanceAlongPerimeter = (i * charSpacing + animationOffsetDistance) % perimeter;
             const pathPoint = pathCalculator(distanceAlongPerimeter, width, height, cornerRadius);
             
             this.drawSingleCharacterRibbon(ctx, text[i], pathPoint.x, pathPoint.y, pathPoint.angle, borderWidth);
         }
     }
     
-    drawTriangleRibbon(ctx, text, borderWidth) {
-        const size = this.shapeParameters.triangle.size;
-        const perimeter = 3 * size;
-        const charSpacing = perimeter / text.length;
-        
-        for (let i = 0; i < text.length; i++) {
-            const distanceAlongPerimeter = i * charSpacing;
-            const pathPoint = this.getTrianglePathPoint(distanceAlongPerimeter, size);
-            
-            this.drawSingleCharacterRibbon(ctx, text[i], pathPoint.x, pathPoint.y, pathPoint.angle, borderWidth);
-        }
-    }
     
     drawSingleCharacterRibbon(ctx, char, x, y, angle, borderWidth) {
         // Skip drawing borders for space characters
@@ -1552,7 +1459,7 @@ class TextTickerTool {
     
     drawTextOnRecordingCanvas(ctx, canvasWidth, canvasHeight) {
         const text = this.currentText;
-        const radius = this.currentRadius;
+        const radius = this.shapeParameters.circle.radius;
         const rotation = this.currentRotation * (Math.PI / 180);
         
         ctx.save();
@@ -1569,9 +1476,11 @@ class TextTickerTool {
         ctx.font = `${this.currentFontWeight} ${this.currentFontSize}px "${this.currentFontFamily}", sans-serif`;
         
         const angleStep = (2 * Math.PI) / text.length;
+        // Convert animation offset from degrees to radians and apply to character positioning
+        const animationOffsetRadians = (this.animationOffset * Math.PI) / 180;
         
         for (let i = 0; i < text.length; i++) {
-            const angle = angleStep * i;
+            const angle = angleStep * i + animationOffsetRadians;
             const x = radius * Math.cos(angle);
             const y = radius * Math.sin(angle);
             

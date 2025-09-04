@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Animation Debug Test</title>
+    <style>
+        body { background: #222; color: white; font-family: Arial, sans-serif; }
+        .controls { margin: 20px; }
+        .controls input, select { margin: 10px; }
+        canvas { border: 1px solid white; }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <label>Speed: <input type="range" id="speed" min="0" max="5" step="0.1" value="1"> <span id="speedValue">1.0x</span></label><br>
+        <label>Direction: 
+            <select id="direction">
+                <option value="clockwise">Clockwise</option>
+                <option value="counterclockwise">Counterclockwise</option>
+            </select>
+        </label><br>
+        <div id="debug"></div>
+    </div>
+    <canvas id="canvas" width="600" height="400"></canvas>
+
+    <script>
+        class SimpleAnimationTest {
+            constructor() {
+                this.canvas = document.getElementById('canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.speedSlider = document.getElementById('speed');
+                this.speedValue = document.getElementById('speedValue');
+                this.directionSelect = document.getElementById('direction');
+                this.debugDiv = document.getElementById('debug');
+                
+                this.animationSpeed = 1.0;
+                this.animationDirection = 'clockwise';
+                this.animationOffset = 0;
+                this.lastTime = 0;
+                this.frameCount = 0;
+                
+                this.setupEventListeners();
+                this.startAnimation();
+            }
+            
+            setupEventListeners() {
+                this.speedSlider.addEventListener('input', () => {
+                    this.animationSpeed = parseFloat(this.speedSlider.value);
+                    this.speedValue.textContent = this.animationSpeed.toFixed(1) + 'x';
+                });
+                
+                this.directionSelect.addEventListener('change', () => {
+                    this.animationDirection = this.directionSelect.value;
+                });
+            }
+            
+            startAnimation() {
+                this.lastTime = performance.now();
+                this.animate();
+            }
+            
+            animate() {
+                const currentTime = performance.now();
+                const deltaTime = (currentTime - this.lastTime) / 1000;
+                
+                if (this.animationSpeed > 0) {
+                    const baseDegreesPerSecond = 60;
+                    const speedMultiplier = this.animationSpeed;
+                    const directionMultiplier = this.animationDirection === "clockwise" ? 1 : -1;
+                    
+                    const deltaOffset = baseDegreesPerSecond * speedMultiplier * directionMultiplier * deltaTime;
+                    this.animationOffset = (this.animationOffset + deltaOffset) % 360;
+                    
+                    if (this.animationOffset < 0) {
+                        this.animationOffset += 360;
+                    }
+                    
+                    this.draw();
+                }
+                
+                this.lastTime = currentTime;
+                this.frameCount++;
+                
+                // Update debug info every 60 frames
+                if (this.frameCount % 60 === 0) {
+                    this.debugDiv.innerHTML = `
+                        Frames: ${this.frameCount}<br>
+                        Offset: ${this.animationOffset.toFixed(2)}°<br>
+                        Speed: ${this.animationSpeed}x<br>
+                        Direction: ${this.animationDirection}<br>
+                        Delta: ${deltaTime.toFixed(4)}s
+                    `;
+                }
+                
+                requestAnimationFrame(() => this.animate());
+            }
+            
+            draw() {
+                const ctx = this.ctx;
+                ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                const centerX = this.canvas.width / 2;
+                const centerY = this.canvas.height / 2;
+                const radius = 100;
+                const text = "SAMPLE TEXT";
+                
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                
+                ctx.fillStyle = 'white';
+                ctx.font = '20px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                const angleStep = (2 * Math.PI) / text.length;
+                const animationOffsetRadians = (this.animationOffset * Math.PI) / 180;
+                
+                for (let i = 0; i < text.length; i++) {
+                    const angle = angleStep * i + animationOffsetRadians;
+                    const x = radius * Math.cos(angle);
+                    const y = radius * Math.sin(angle);
+                    
+                    ctx.save();
+                    ctx.translate(x, y);
+                    ctx.rotate(angle + Math.PI / 2);
+                    ctx.fillText(text[i], 0, 0);
+                    ctx.restore();
+                }
+                
+                ctx.restore();
+            }
+        }
+        
+        // Start the test when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new SimpleAnimationTest();
+        });
+    </script>
+</body>
+</html>
