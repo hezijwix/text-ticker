@@ -12,17 +12,47 @@ class TextTickerTool {
         
         // Font controls
         this.fontFamilySelect = document.getElementById('fontFamilySelect');
+        this.fontSizeSlider = document.getElementById('fontSizeSlider');
+        this.fontSizeValue = document.getElementById('fontSizeValue');
         this.fontWeightSlider = document.getElementById('fontWeightSlider');
         this.fontWeightValue = document.getElementById('fontWeightValue');
+        this.textColorPicker = document.getElementById('textColorPicker');
         
-        // Preset control
-        this.presetSelect = document.getElementById('presetSelect');
+        // Shape control
+        this.shapeTypeSelect = document.getElementById('shapeTypeSelect');
         
-        // Shape controls
+        // Shape controls - Circle
         this.radiusSlider = document.getElementById('radiusSlider');
         this.radiusValue = document.getElementById('radiusValue');
+        
+        // Shape controls - Rectangle
+        this.rectWidthSlider = document.getElementById('rectWidthSlider');
+        this.rectWidthValue = document.getElementById('rectWidthValue');
+        this.rectHeightSlider = document.getElementById('rectHeightSlider');
+        this.rectHeightValue = document.getElementById('rectHeightValue');
+        this.rectCornerSlider = document.getElementById('rectCornerSlider');
+        this.rectCornerValue = document.getElementById('rectCornerValue');
+        
+        // Shape controls - Triangle
+        this.triangleSizeSlider = document.getElementById('triangleSizeSlider');
+        this.triangleSizeValue = document.getElementById('triangleSizeValue');
+        this.triangleCornerSlider = document.getElementById('triangleCornerSlider');
+        this.triangleCornerValue = document.getElementById('triangleCornerValue');
+        
+        // Common rotation control
         this.rotationSlider = document.getElementById('rotationSlider');
         this.rotationValue = document.getElementById('rotationValue');
+        
+        // Shape property groups for dynamic visibility
+        this.circleProperties = document.getElementById('circleProperties');
+        this.rectangleProperties = document.getElementById('rectangleProperties');
+        this.triangleProperties = document.getElementById('triangleProperties');
+        
+        // Text Ribbon controls
+        this.ribbonModeSelect = document.getElementById('ribbonModeSelect');
+        this.ribbonWidthSlider = document.getElementById('ribbonWidthSlider');
+        this.ribbonWidthValue = document.getElementById('ribbonWidthValue');
+        this.ribbonColorPicker = document.getElementById('ribbonColorPicker');
         
         // Background controls
         this.backgroundColorPicker = document.getElementById('backgroundColorPicker');
@@ -68,10 +98,33 @@ class TextTickerTool {
         this.p5Instance = null;
         this.currentZoom = 1.0;
         this.currentText = "Sample Text";
-        this.currentRadius = 150;
-        this.currentRotation = 0;
         this.currentFontFamily = "Wix Madefor Display";
+        this.currentFontSize = 24;
         this.currentFontWeight = 500;
+        this.currentTextColor = "#ffffff";
+        this.currentRotation = 0;
+        
+        // Shape system
+        this.currentShape = "circle";
+        this.shapeParameters = {
+            circle: {
+                radius: 150
+            },
+            rectangle: {
+                width: 300,
+                height: 200,
+                cornerRadius: 0
+            },
+            triangle: {
+                size: 200,
+                cornerRadius: 0
+            }
+        };
+        
+        // Text Ribbon properties
+        this.ribbonMode = "character";  // "off", "character", "shapePath"
+        this.ribbonWidth = 0.25;  // Proportional to font size
+        this.ribbonColor = "#ff0000";
         
         // Export properties
         this.preferredExportFormat = 'auto';
@@ -90,6 +143,10 @@ class TextTickerTool {
         console.log('🚀 Initializing Text Ticker Tool...');
         console.log('📦 Frame container:', this.frameContainer);
         
+        // Initialize text from textarea
+        this.currentText = this.textInput.value || "Sample Text";
+        console.log('📝 Initial text:', this.currentText);
+        
         // Initialize frame container with proper styling
         this.initFrameContainer();
         
@@ -98,6 +155,7 @@ class TextTickerTool {
         
         this.createP5Instance();
         this.setupEventListeners();
+        this.updateShapeControls(); // Initialize shape controls visibility
         this.initFFmpeg(); // Initialize FFmpeg for video conversion
         
         // Handle window resize
@@ -214,22 +272,90 @@ class TextTickerTool {
             this.renderText();
         });
         
+        this.fontSizeSlider.addEventListener('input', () => {
+            this.currentFontSize = parseInt(this.fontSizeSlider.value);
+            this.fontSizeValue.textContent = this.currentFontSize + 'px';
+            this.renderText();
+        });
+        
         this.fontWeightSlider.addEventListener('input', () => {
             this.currentFontWeight = parseInt(this.fontWeightSlider.value);
             this.fontWeightValue.textContent = this.currentFontWeight;
             this.renderText();
         });
         
-        // Shape controls
-        this.radiusSlider.addEventListener('input', () => {
-            this.currentRadius = parseFloat(this.radiusSlider.value);
-            this.radiusValue.textContent = this.currentRadius;
+        this.textColorPicker.addEventListener('input', () => {
+            this.currentTextColor = this.textColorPicker.value;
             this.renderText();
         });
         
+        // Shape type selection
+        this.shapeTypeSelect.addEventListener('change', () => {
+            this.currentShape = this.shapeTypeSelect.value;
+            this.updateShapeControls();
+            this.renderText();
+        });
+        
+        // Circle controls
+        this.radiusSlider.addEventListener('input', () => {
+            this.shapeParameters.circle.radius = parseFloat(this.radiusSlider.value);
+            this.radiusValue.textContent = this.shapeParameters.circle.radius;
+            this.renderText();
+        });
+        
+        // Rectangle controls
+        this.rectWidthSlider.addEventListener('input', () => {
+            this.shapeParameters.rectangle.width = parseFloat(this.rectWidthSlider.value);
+            this.rectWidthValue.textContent = this.shapeParameters.rectangle.width;
+            this.renderText();
+        });
+        
+        this.rectHeightSlider.addEventListener('input', () => {
+            this.shapeParameters.rectangle.height = parseFloat(this.rectHeightSlider.value);
+            this.rectHeightValue.textContent = this.shapeParameters.rectangle.height;
+            this.renderText();
+        });
+        
+        this.rectCornerSlider.addEventListener('input', () => {
+            this.shapeParameters.rectangle.cornerRadius = parseFloat(this.rectCornerSlider.value);
+            this.rectCornerValue.textContent = this.shapeParameters.rectangle.cornerRadius;
+            this.renderText();
+        });
+        
+        // Triangle controls
+        this.triangleSizeSlider.addEventListener('input', () => {
+            this.shapeParameters.triangle.size = parseFloat(this.triangleSizeSlider.value);
+            this.triangleSizeValue.textContent = this.shapeParameters.triangle.size;
+            this.renderText();
+        });
+        
+        this.triangleCornerSlider.addEventListener('input', () => {
+            this.shapeParameters.triangle.cornerRadius = parseFloat(this.triangleCornerSlider.value);
+            this.triangleCornerValue.textContent = this.shapeParameters.triangle.cornerRadius;
+            this.renderText();
+        });
+        
+        // Common rotation control
         this.rotationSlider.addEventListener('input', () => {
             this.currentRotation = parseFloat(this.rotationSlider.value);
             this.rotationValue.textContent = this.currentRotation + '°';
+            this.renderText();
+        });
+        
+        // Text Ribbon controls
+        this.ribbonModeSelect.addEventListener('change', () => {
+            this.ribbonMode = this.ribbonModeSelect.value;
+            this.renderText();
+        });
+        
+        this.ribbonWidthSlider.addEventListener('input', () => {
+            this.ribbonWidth = parseFloat(this.ribbonWidthSlider.value);
+            this.ribbonWidthValue.textContent = this.ribbonWidth.toFixed(2) + 'x';
+            this.renderText();
+        });
+        
+        this.ribbonColorPicker.addEventListener('input', () => {
+            this.ribbonColor = this.ribbonColorPicker.value;
             this.renderText();
         });
         
@@ -470,8 +596,20 @@ class TextTickerTool {
             console.log('🖼️ Drew background image');
         }
         
-        // Draw text on circle
-        this.drawTextOnCircle(p);
+        // Draw text ribbons based on mode
+        console.log('🎨 Ribbon mode check:', this.ribbonMode);
+        if (this.ribbonMode === "shapePath") {
+            console.log('✅ Drawing shape path ribbon');
+            this.drawShapePathRibbon(p);
+        } else if (this.ribbonMode === "character") {
+            console.log('✅ Drawing character ribbon');
+            this.drawCharacterRibbon(p);
+        } else {
+            console.log('ℹ️ No ribbon mode active');
+        }
+        
+        // Draw text based on current shape
+        this.drawTextOnPath(p);
         
         // Draw foreground image if loaded
         if (this.foregroundImageElement) {
@@ -484,7 +622,7 @@ class TextTickerTool {
     
     drawTextOnCircle(p) {
         const text = this.currentText;
-        const radius = this.currentRadius;
+        const radius = this.shapeParameters.circle.radius;
         const rotation = this.currentRotation * (Math.PI / 180);
         
         console.log('🔤 Drawing text on circle:', {
@@ -524,8 +662,8 @@ class TextTickerTool {
         ctx.rotate(rotation);
         
         // Set font properties with variable font weight
-        ctx.fillStyle = 'white';
-        ctx.font = `${this.currentFontWeight} 24px "${this.currentFontFamily}", sans-serif`;
+        ctx.fillStyle = this.currentTextColor;
+        ctx.font = `${this.currentFontWeight} ${this.currentFontSize}px "${this.currentFontFamily}", sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         
@@ -547,6 +685,507 @@ class TextTickerTool {
         // Restore canvas state
         ctx.restore();
         console.log('✅ Text drawing completed and centered');
+    }
+    
+    updateShapeControls() {
+        // Hide all shape property groups
+        this.circleProperties.style.display = 'none';
+        this.rectangleProperties.style.display = 'none';
+        this.triangleProperties.style.display = 'none';
+        
+        // Show the current shape's properties
+        switch (this.currentShape) {
+            case 'circle':
+                this.circleProperties.style.display = 'block';
+                break;
+            case 'rectangle':
+                this.rectangleProperties.style.display = 'block';
+                break;
+            case 'triangle':
+                this.triangleProperties.style.display = 'block';
+                break;
+        }
+        
+        console.log('🔄 Shape controls updated for:', this.currentShape);
+    }
+    
+    drawTextOnPath(p) {
+        switch (this.currentShape) {
+            case 'circle':
+                this.drawTextOnCircle(p);
+                break;
+            case 'rectangle':
+                this.drawTextOnRectangle(p);
+                break;
+            case 'triangle':
+                this.drawTextOnTriangle(p);
+                break;
+        }
+    }
+    
+    drawTextOnRectangle(p) {
+        const text = this.currentText;
+        const width = this.shapeParameters.rectangle.width;
+        const height = this.shapeParameters.rectangle.height;
+        const cornerRadius = this.shapeParameters.rectangle.cornerRadius;
+        const rotation = this.currentRotation * (Math.PI / 180);
+        
+        console.log('🔤 Drawing text on rectangle:', {
+            text: text,
+            width: width,
+            height: height,
+            cornerRadius: cornerRadius,
+            rotation: this.currentRotation,
+            fontFamily: this.currentFontFamily,
+            fontSize: this.currentFontSize,
+            fontWeight: this.currentFontWeight,
+            canvasSize: `${p.width}x${p.height}`
+        });
+        
+        // Use Canvas 2D API for variable font support
+        const canvas = p.canvas;
+        const ctx = canvas.getContext('2d');
+        
+        // Save current canvas state
+        ctx.save();
+        
+        // Center coordinates
+        const centerX = p.width / 2;
+        const centerY = p.height / 2;
+        
+        // Move to center and apply rotation
+        ctx.translate(centerX, centerY);
+        ctx.rotate(rotation);
+        
+        // Set font properties
+        ctx.fillStyle = this.currentTextColor;
+        ctx.font = `${this.currentFontWeight} ${this.currentFontSize}px "${this.currentFontFamily}", sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        // Calculate rectangle perimeter for text distribution
+        const perimeter = 2 * (width + height);
+        const charSpacing = perimeter / text.length;
+        
+        for (let i = 0; i < text.length; i++) {
+            const distanceAlongPerimeter = i * charSpacing;
+            const pathPoint = this.getRectanglePathPoint(distanceAlongPerimeter, width, height);
+            
+            ctx.save();
+            ctx.translate(pathPoint.x, pathPoint.y);
+            ctx.rotate(pathPoint.angle);
+            ctx.fillText(text[i], 0, 0);
+            ctx.restore();
+        }
+        
+        // Restore canvas state
+        ctx.restore();
+        console.log('✅ Rectangle text drawing completed');
+    }
+    
+    getRectanglePathPoint(distance, width, height) {
+        const halfWidth = width / 2;
+        const halfHeight = height / 2;
+        const perimeter = 2 * (width + height);
+        
+        // Normalize distance to be within perimeter
+        const normalizedDistance = distance % perimeter;
+        
+        let x, y, angle;
+        
+        if (normalizedDistance <= width) {
+            // Top edge (left to right)
+            const progress = normalizedDistance / width;
+            x = -halfWidth + progress * width;
+            y = -halfHeight;
+            angle = 0;
+        } else if (normalizedDistance <= width + height) {
+            // Right edge (top to bottom)
+            const progress = (normalizedDistance - width) / height;
+            x = halfWidth;
+            y = -halfHeight + progress * height;
+            angle = Math.PI / 2;
+        } else if (normalizedDistance <= 2 * width + height) {
+            // Bottom edge (right to left)
+            const progress = (normalizedDistance - width - height) / width;
+            x = halfWidth - progress * width;
+            y = halfHeight;
+            angle = Math.PI;
+        } else {
+            // Left edge (bottom to top)
+            const progress = (normalizedDistance - 2 * width - height) / height;
+            x = -halfWidth;
+            y = halfHeight - progress * height;
+            angle = -Math.PI / 2;
+        }
+        
+        return { x, y, angle };
+    }
+    
+    drawTextOnTriangle(p) {
+        const text = this.currentText;
+        const size = this.shapeParameters.triangle.size;
+        const cornerRadius = this.shapeParameters.triangle.cornerRadius;
+        const rotation = this.currentRotation * (Math.PI / 180);
+        
+        console.log('🔤 Drawing text on triangle:', {
+            text: text,
+            size: size,
+            cornerRadius: cornerRadius,
+            rotation: this.currentRotation,
+            fontFamily: this.currentFontFamily,
+            fontSize: this.currentFontSize,
+            fontWeight: this.currentFontWeight,
+            canvasSize: `${p.width}x${p.height}`
+        });
+        
+        // Use Canvas 2D API for variable font support
+        const canvas = p.canvas;
+        const ctx = canvas.getContext('2d');
+        
+        // Save current canvas state
+        ctx.save();
+        
+        // Center coordinates
+        const centerX = p.width / 2;
+        const centerY = p.height / 2;
+        
+        // Move to center and apply rotation
+        ctx.translate(centerX, centerY);
+        ctx.rotate(rotation);
+        
+        // Set font properties
+        ctx.fillStyle = this.currentTextColor;
+        ctx.font = `${this.currentFontWeight} ${this.currentFontSize}px "${this.currentFontFamily}", sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        // Calculate triangle perimeter for text distribution
+        const sideLength = size;
+        const perimeter = 3 * sideLength;
+        const charSpacing = perimeter / text.length;
+        
+        for (let i = 0; i < text.length; i++) {
+            const distanceAlongPerimeter = i * charSpacing;
+            const pathPoint = this.getTrianglePathPoint(distanceAlongPerimeter, size);
+            
+            ctx.save();
+            ctx.translate(pathPoint.x, pathPoint.y);
+            ctx.rotate(pathPoint.angle);
+            ctx.fillText(text[i], 0, 0);
+            ctx.restore();
+        }
+        
+        // Restore canvas state
+        ctx.restore();
+        console.log('✅ Triangle text drawing completed');
+    }
+    
+    getTrianglePathPoint(distance, size) {
+        const sideLength = size;
+        const height = (Math.sqrt(3) / 2) * sideLength;
+        const perimeter = 3 * sideLength;
+        
+        // Normalize distance to be within perimeter
+        const normalizedDistance = distance % perimeter;
+        
+        // Equilateral triangle vertices (pointing up)
+        const vertices = [
+            { x: 0, y: -height / 2 },                    // Top vertex
+            { x: -sideLength / 2, y: height / 2 },       // Bottom left
+            { x: sideLength / 2, y: height / 2 }         // Bottom right
+        ];
+        
+        let x, y, angle;
+        
+        if (normalizedDistance <= sideLength) {
+            // Side 1: Top to bottom-right
+            const progress = normalizedDistance / sideLength;
+            const start = vertices[0];
+            const end = vertices[2];
+            x = start.x + progress * (end.x - start.x);
+            y = start.y + progress * (end.y - start.y);
+            angle = Math.atan2(end.y - start.y, end.x - start.x) + Math.PI / 2;
+        } else if (normalizedDistance <= 2 * sideLength) {
+            // Side 2: Bottom-right to bottom-left
+            const progress = (normalizedDistance - sideLength) / sideLength;
+            const start = vertices[2];
+            const end = vertices[1];
+            x = start.x + progress * (end.x - start.x);
+            y = start.y + progress * (end.y - start.y);
+            angle = Math.atan2(end.y - start.y, end.x - start.x) + Math.PI / 2;
+        } else {
+            // Side 3: Bottom-left to top
+            const progress = (normalizedDistance - 2 * sideLength) / sideLength;
+            const start = vertices[1];
+            const end = vertices[0];
+            x = start.x + progress * (end.x - start.x);
+            y = start.y + progress * (end.y - start.y);
+            angle = Math.atan2(end.y - start.y, end.x - start.x) + Math.PI / 2;
+        }
+        
+        return { x, y, angle };
+    }
+    
+    drawShapePathRibbon(p) {
+        const rotation = this.currentRotation * (Math.PI / 180);
+        
+        // Calculate ribbon stroke width proportional to font size
+        const strokeWidth = this.currentFontSize * this.ribbonWidth;
+        
+        console.log('🎨 Drawing shape path ribbon:', {
+            shape: this.currentShape,
+            strokeWidth: strokeWidth,
+            ribbonColor: this.ribbonColor,
+            rotation: rotation
+        });
+        
+        const ctx = p.canvas.getContext('2d');
+        ctx.save();
+        
+        // Move to center of canvas and apply rotation
+        ctx.translate(p.width / 2, p.height / 2);
+        ctx.rotate(rotation);
+        
+        // Set stroke properties for shape outline
+        ctx.strokeStyle = this.ribbonColor;
+        ctx.lineWidth = strokeWidth;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.fillStyle = 'transparent';
+        
+        // Draw shape outline based on current shape
+        switch (this.currentShape) {
+            case 'circle':
+                this.drawCirclePathRibbon(ctx);
+                break;
+            case 'rectangle':
+                this.drawRectanglePathRibbon(ctx);
+                break;
+            case 'triangle':
+                this.drawTrianglePathRibbon(ctx);
+                break;
+        }
+        
+        ctx.restore();
+        console.log('✅ Shape path ribbon completed');
+    }
+    
+    drawCirclePathRibbon(ctx) {
+        const radius = this.shapeParameters.circle.radius;
+        
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, 2 * Math.PI);
+        ctx.stroke();
+    }
+    
+    drawRectanglePathRibbon(ctx) {
+        const width = this.shapeParameters.rectangle.width;
+        const height = this.shapeParameters.rectangle.height;
+        const cornerRadius = this.shapeParameters.rectangle.cornerRadius;
+        
+        ctx.beginPath();
+        
+        // Use roundRect if available, fallback to regular rect
+        if (typeof ctx.roundRect === 'function' && cornerRadius > 0) {
+            ctx.roundRect(-width/2, -height/2, width, height, cornerRadius);
+        } else {
+            ctx.rect(-width/2, -height/2, width, height);
+        }
+        
+        ctx.stroke();
+    }
+    
+    drawTrianglePathRibbon(ctx) {
+        const size = this.shapeParameters.triangle.size;
+        const cornerRadius = this.shapeParameters.triangle.cornerRadius;
+        
+        // Calculate triangle vertices (equilateral triangle)
+        const height = size * Math.sqrt(3) / 2;
+        const vertices = [
+            { x: 0, y: -height * 2/3 },           // Top vertex
+            { x: -size/2, y: height * 1/3 },      // Bottom left
+            { x: size/2, y: height * 1/3 }        // Bottom right
+        ];
+        
+        ctx.beginPath();
+        
+        if (cornerRadius > 0 && typeof ctx.arcTo === 'function') {
+            // Draw triangle with rounded corners using arcTo (if supported)
+            try {
+                ctx.moveTo(vertices[0].x, vertices[0].y - cornerRadius);
+                
+                for (let i = 0; i < 3; i++) {
+                    const current = vertices[i];
+                    const next = vertices[(i + 1) % 3];
+                    const nextNext = vertices[(i + 2) % 3];
+                    
+                    ctx.arcTo(next.x, next.y, nextNext.x, nextNext.y, cornerRadius);
+                }
+                
+                ctx.closePath();
+            } catch (error) {
+                // Fallback to regular triangle if arcTo fails
+                console.warn('Rounded triangle corners not supported, using regular triangle');
+                ctx.beginPath();
+                ctx.moveTo(vertices[0].x, vertices[0].y);
+                ctx.lineTo(vertices[1].x, vertices[1].y);
+                ctx.lineTo(vertices[2].x, vertices[2].y);
+                ctx.closePath();
+            }
+        } else {
+            // Draw regular triangle
+            ctx.moveTo(vertices[0].x, vertices[0].y);
+            ctx.lineTo(vertices[1].x, vertices[1].y);
+            ctx.lineTo(vertices[2].x, vertices[2].y);
+            ctx.closePath();
+        }
+        
+        ctx.stroke();
+    }
+    
+    drawCharacterRibbon(p) {
+        const text = this.currentText;
+        
+        // Skip if no text
+        if (!text || text.length === 0) {
+            console.log('⚠️ No text to draw character ribbons for');
+            return;
+        }
+        
+        const rotation = this.currentRotation * (Math.PI / 180);
+        
+        // Calculate ribbon border width proportional to font size
+        const borderWidth = this.currentFontSize * this.ribbonWidth;
+        
+        console.log('🎀 Drawing character ribbon borders:', {
+            text: text,
+            shape: this.currentShape,
+            borderWidth: borderWidth,
+            ribbonColor: this.ribbonColor,
+            canvasSize: `${p.width}x${p.height}`
+        });
+        
+        // Use Canvas 2D API for precise border rendering
+        const canvas = p.canvas;
+        const ctx = canvas.getContext('2d');
+        
+        // Save current canvas state
+        ctx.save();
+        
+        // Center coordinates
+        const centerX = p.width / 2;
+        const centerY = p.height / 2;
+        
+        // Move to center and apply rotation
+        ctx.translate(centerX, centerY);
+        ctx.rotate(rotation);
+        
+        // Set border/ribbon properties
+        ctx.fillStyle = this.ribbonColor;
+        ctx.strokeStyle = this.ribbonColor;
+        ctx.lineWidth = borderWidth;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
+        // Set font properties to calculate character dimensions
+        ctx.font = `${this.currentFontWeight} ${this.currentFontSize}px "${this.currentFontFamily}", sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        // Create ribbon border by drawing filled shapes behind each character
+        // Use the same path calculation logic as the text rendering
+        this.drawRibbonForCurrentShape(ctx, text, borderWidth);
+        
+        // Restore canvas state
+        ctx.restore();
+        console.log('✅ Character ribbon borders completed');
+    }
+    
+    drawRibbonForCurrentShape(ctx, text, borderWidth) {
+        // Draw ribbon borders based on current shape
+        switch (this.currentShape) {
+            case 'circle':
+                this.drawCircleRibbon(ctx, text, borderWidth);
+                break;
+            case 'rectangle':
+                this.drawRectangleRibbon(ctx, text, borderWidth);
+                break;
+            case 'triangle':
+                this.drawTriangleRibbon(ctx, text, borderWidth);
+                break;
+        }
+    }
+    
+    drawCircleRibbon(ctx, text, borderWidth) {
+        const radius = this.shapeParameters.circle.radius;
+        const angleStep = (2 * Math.PI) / text.length;
+        
+        for (let i = 0; i < text.length; i++) {
+            const angle = angleStep * i;
+            const x = radius * Math.cos(angle);
+            const y = radius * Math.sin(angle);
+            
+            this.drawSingleCharacterRibbon(ctx, text[i], x, y, angle + Math.PI / 2, borderWidth);
+        }
+    }
+    
+    drawRectangleRibbon(ctx, text, borderWidth) {
+        const width = this.shapeParameters.rectangle.width;
+        const height = this.shapeParameters.rectangle.height;
+        const perimeter = 2 * (width + height);
+        const charSpacing = perimeter / text.length;
+        
+        for (let i = 0; i < text.length; i++) {
+            const distanceAlongPerimeter = i * charSpacing;
+            const pathPoint = this.getRectanglePathPoint(distanceAlongPerimeter, width, height);
+            
+            this.drawSingleCharacterRibbon(ctx, text[i], pathPoint.x, pathPoint.y, pathPoint.angle, borderWidth);
+        }
+    }
+    
+    drawTriangleRibbon(ctx, text, borderWidth) {
+        const size = this.shapeParameters.triangle.size;
+        const perimeter = 3 * size;
+        const charSpacing = perimeter / text.length;
+        
+        for (let i = 0; i < text.length; i++) {
+            const distanceAlongPerimeter = i * charSpacing;
+            const pathPoint = this.getTrianglePathPoint(distanceAlongPerimeter, size);
+            
+            this.drawSingleCharacterRibbon(ctx, text[i], pathPoint.x, pathPoint.y, pathPoint.angle, borderWidth);
+        }
+    }
+    
+    drawSingleCharacterRibbon(ctx, char, x, y, angle, borderWidth) {
+        // Get character metrics for accurate border sizing
+        const metrics = ctx.measureText(char);
+        const charWidth = metrics.width;
+        const charHeight = this.currentFontSize;
+        
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+        
+        // Draw rounded rectangle border behind character
+        const borderPadding = borderWidth * 0.5;
+        const rectWidth = charWidth + borderPadding * 2;
+        const rectHeight = charHeight + borderPadding * 2;
+        
+        // Create rounded rectangle path
+        const cornerRadius = Math.min(borderWidth * 0.3, rectWidth * 0.2, rectHeight * 0.2);
+        
+        ctx.beginPath();
+        if (typeof ctx.roundRect === 'function') {
+            // Modern browsers with roundRect support
+            ctx.roundRect(-rectWidth/2, -rectHeight/2, rectWidth, rectHeight, cornerRadius);
+        } else {
+            // Fallback for older browsers - draw simple rectangle
+            ctx.rect(-rectWidth/2, -rectHeight/2, rectWidth, rectHeight);
+        }
+        ctx.fill();
+        
+        ctx.restore();
     }
     
     // Image handling
@@ -906,10 +1545,10 @@ class TextTickerTool {
         ctx.translate(centerX, centerY);
         ctx.rotate(rotation);
         
-        ctx.fillStyle = 'white';
+        ctx.fillStyle = this.currentTextColor;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.font = `${this.currentFontWeight} 24px "${this.currentFontFamily}", sans-serif`;
+        ctx.font = `${this.currentFontWeight} ${this.currentFontSize}px "${this.currentFontFamily}", sans-serif`;
         
         const angleStep = (2 * Math.PI) / text.length;
         

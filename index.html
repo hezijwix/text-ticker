@@ -38,7 +38,7 @@
             <div class="controls-section">
                 <h4>Text Content</h4>
                 <div class="text-input-container">
-                    <textarea id="textInput" placeholder="Enter your text here..." rows="3" class="text-input-box"></textarea>
+                    <textarea id="textInput" placeholder="Enter your text here..." rows="3" class="text-input-box">Sample Text</textarea>
                 </div>
                 
                 <div class="font-controls">
@@ -52,35 +52,108 @@
                         </select>
                     </div>
                     
+                    <div class="font-size-row">
+                        <label for="fontSizeSlider">Font Size:</label>
+                        <input type="range" id="fontSizeSlider" min="12" max="72" step="2" value="24" class="control-slider">
+                        <span id="fontSizeValue">24px</span>
+                    </div>
+                    
                     <div class="font-weight-row">
                         <label for="fontWeightSlider">Font Weight:</label>
                         <input type="range" id="fontWeightSlider" min="400" max="800" step="25" value="500" class="control-slider">
                         <span id="fontWeightValue">500</span>
                     </div>
+                    
+                    <div class="text-color-row">
+                        <label for="textColorPicker">Text Color:</label>
+                        <input type="color" id="textColorPicker" value="#ffffff" class="color-picker">
+                    </div>
                 </div>
             </div>
 
             <div class="controls-section">
-                <h4>Path Preset</h4>
+                <h4>Shape Mode</h4>
                 <div class="preset-control-row">
-                    <label for="presetSelect">Type:</label>
-                    <select id="presetSelect" class="preset-select">
-                        <option value="shape">Shape</option>
+                    <label for="shapeTypeSelect">Shape:</label>
+                    <select id="shapeTypeSelect" class="preset-select">
+                        <option value="circle">Circle</option>
+                        <option value="rectangle">Rectangle</option>
+                        <option value="triangle">Triangle</option>
                     </select>
                 </div>
             </div>
 
             <div class="controls-section" id="shapePropertiesSection">
                 <h4>Shape Properties</h4>
-                <div class="slider-control-row">
-                    <label for="radiusSlider">Radius:</label>
-                    <input type="range" id="radiusSlider" min="50" max="300" step="10" value="150" class="control-slider">
-                    <span id="radiusValue">150</span>
+                
+                <!-- Circle Properties -->
+                <div id="circleProperties" class="shape-properties-group">
+                    <div class="slider-control-row">
+                        <label for="radiusSlider">Radius:</label>
+                        <input type="range" id="radiusSlider" min="50" max="300" step="10" value="150" class="control-slider">
+                        <span id="radiusValue">150</span>
+                    </div>
                 </div>
+                
+                <!-- Rectangle Properties -->
+                <div id="rectangleProperties" class="shape-properties-group" style="display: none;">
+                    <div class="slider-control-row">
+                        <label for="rectWidthSlider">Width:</label>
+                        <input type="range" id="rectWidthSlider" min="100" max="400" step="10" value="300" class="control-slider">
+                        <span id="rectWidthValue">300</span>
+                    </div>
+                    <div class="slider-control-row">
+                        <label for="rectHeightSlider">Height:</label>
+                        <input type="range" id="rectHeightSlider" min="80" max="300" step="10" value="200" class="control-slider">
+                        <span id="rectHeightValue">200</span>
+                    </div>
+                    <div class="slider-control-row">
+                        <label for="rectCornerSlider">Corner Radius:</label>
+                        <input type="range" id="rectCornerSlider" min="0" max="50" step="2" value="0" class="control-slider">
+                        <span id="rectCornerValue">0</span>
+                    </div>
+                </div>
+                
+                <!-- Triangle Properties -->
+                <div id="triangleProperties" class="shape-properties-group" style="display: none;">
+                    <div class="slider-control-row">
+                        <label for="triangleSizeSlider">Size:</label>
+                        <input type="range" id="triangleSizeSlider" min="100" max="400" step="10" value="200" class="control-slider">
+                        <span id="triangleSizeValue">200</span>
+                    </div>
+                    <div class="slider-control-row">
+                        <label for="triangleCornerSlider">Corner Radius:</label>
+                        <input type="range" id="triangleCornerSlider" min="0" max="30" step="2" value="0" class="control-slider">
+                        <span id="triangleCornerValue">0</span>
+                    </div>
+                </div>
+                
+                <!-- Common Rotation Control -->
                 <div class="slider-control-row">
                     <label for="rotationSlider">Rotation:</label>
                     <input type="range" id="rotationSlider" min="0" max="360" step="1" value="0" class="control-slider">
                     <span id="rotationValue">0°</span>
+                </div>
+            </div>
+
+            <div class="controls-section">
+                <h4>Text Ribbon</h4>
+                <div class="preset-control-row">
+                    <label for="ribbonModeSelect">Ribbon Mode:</label>
+                    <select id="ribbonModeSelect" class="preset-select">
+                        <option value="off">Off</option>
+                        <option value="character" selected>Character Borders</option>
+                        <option value="shapePath">Shape Path</option>
+                    </select>
+                </div>
+                <div class="slider-control-row">
+                    <label for="ribbonWidthSlider">Border Width:</label>
+                    <input type="range" id="ribbonWidthSlider" min="0.1" max="2.0" step="0.1" value="0.25" class="control-slider">
+                    <span id="ribbonWidthValue">0.25x</span>
+                </div>
+                <div class="color-control-row">
+                    <label for="ribbonColorPicker">Border Color:</label>
+                    <input type="color" id="ribbonColorPicker" value="#ff0000" class="color-picker">
                 </div>
             </div>
 
