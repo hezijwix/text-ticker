@@ -1,4 +1,4 @@
-// Text Ticker Tool Script - Typography on path rendering tool
+// Text Ticker Tool Script - P5.js powered typography tool
 
 class TextTickerTool {
     constructor() {
@@ -62,9 +62,8 @@ class TextTickerTool {
         this.helpIcon = document.getElementById('helpIcon');
         this.closeHelpModal = document.getElementById('closeHelpModal');
         
-        // Canvas and rendering properties
-        this.canvas = null;
-        this.ctx = null;
+        // P5.js and rendering properties
+        this.p5Instance = null;
         this.currentZoom = 1.0;
         this.currentText = "Sample Text";
         this.currentRadius = 150;
@@ -75,28 +74,38 @@ class TextTickerTool {
     }
     
     init() {
-        this.createCanvas();
+        this.createP5Instance();
         this.setupEventListeners();
-        this.updateFrameSize();
-        this.renderText();
     }
     
-    createCanvas() {
-        // Create canvas element
-        this.canvas = document.createElement('canvas');
-        this.canvas.id = 'textCanvas';
-        this.ctx = this.canvas.getContext('2d');
+    createP5Instance() {
+        const self = this;
         
-        // Clear container and add canvas
+        // P5.js instance mode setup
+        const sketch = (p) => {
+            p.setup = () => {
+                const width = parseInt(self.widthInput.value);
+                const height = parseInt(self.heightInput.value);
+                const canvas = p.createCanvas(width, height);
+                canvas.parent(self.frameContainer);
+                
+                // Set initial text properties
+                p.textAlign(p.CENTER, p.CENTER);
+                p.textSize(24);
+                p.textFont('Arial');
+                
+                self.updateZoom();
+                self.renderText();
+            };
+            
+            p.draw = () => {
+                // P5.js handles the drawing loop, but we control when to redraw
+            };
+        };
+        
+        // Clear container and create P5.js instance
         this.frameContainer.innerHTML = '';
-        this.frameContainer.appendChild(this.canvas);
-        
-        // Set default canvas size
-        this.canvas.width = parseInt(this.widthInput.value);
-        this.canvas.height = parseInt(this.heightInput.value);
-        
-        // Apply zoom to container
-        this.updateZoom();
+        this.p5Instance = new p5(sketch);
     }
     
     setupEventListeners() {
@@ -165,9 +174,8 @@ class TextTickerTool {
         const width = parseInt(this.widthInput.value);
         const height = parseInt(this.heightInput.value);
         
-        if (width > 0 && height > 0) {
-            this.canvas.width = width;
-            this.canvas.height = height;
+        if (width > 0 && height > 0 && this.p5Instance) {
+            this.p5Instance.resizeCanvas(width, height);
             this.renderText();
         }
     }
@@ -184,20 +192,19 @@ class TextTickerTool {
     }
     
     renderText() {
-        if (!this.ctx) return;
+        if (!this.p5Instance) return;
         
-        const width = this.canvas.width;
-        const height = this.canvas.height;
+        const p = this.p5Instance;
         
         // Clear canvas
-        this.ctx.clearRect(0, 0, width, height);
+        p.clear();
         
         // Draw background
         this.drawBackground();
         
         // Draw background image if exists
         if (this.backgroundImageElement) {
-            this.ctx.drawImage(this.backgroundImageElement, 0, 0, width, height);
+            p.image(this.backgroundImageElement, 0, 0, p.width, p.height);
         }
         
         // Draw text on circular path
@@ -205,44 +212,45 @@ class TextTickerTool {
         
         // Draw foreground image if exists
         if (this.foregroundImageElement) {
-            this.ctx.drawImage(this.foregroundImageElement, 0, 0, width, height);
+            p.image(this.foregroundImageElement, 0, 0, p.width, p.height);
         }
     }
     
     drawBackground() {
-        if (this.isAlphaBackground) return;
+        if (this.isAlphaBackground || !this.p5Instance) return;
         
-        const width = this.canvas.width;
-        const height = this.canvas.height;
+        const p = this.p5Instance;
+        const bgColor = this.backgroundColorPicker.value;
         
-        this.ctx.fillStyle = this.backgroundColorPicker.value;
-        this.ctx.fillRect(0, 0, width, height);
+        p.background(bgColor);
     }
     
     drawTextOnCircle() {
-        const centerX = this.canvas.width / 2;
-        const centerY = this.canvas.height / 2;
+        if (!this.p5Instance) return;
+        
+        const p = this.p5Instance;
+        const centerX = p.width / 2;
+        const centerY = p.height / 2;
         const radius = this.currentRadius;
         const text = this.currentText;
-        const rotationOffset = (this.currentRotation * Math.PI) / 180;
+        const rotationOffset = p.radians(this.currentRotation);
         
-        this.ctx.font = '24px Arial';
-        this.ctx.fillStyle = '#ffffff';
-        this.ctx.textAlign = 'center';
-        this.ctx.textBaseline = 'middle';
+        p.fill('#ffffff');
+        p.textAlign(p.CENTER, p.CENTER);
+        p.textSize(24);
         
-        const angleStep = (2 * Math.PI) / text.length;
+        const angleStep = (2 * p.PI) / text.length;
         
         for (let i = 0; i < text.length; i++) {
             const angle = i * angleStep + rotationOffset;
-            const x = centerX + radius * Math.cos(angle);
-            const y = centerY + radius * Math.sin(angle);
+            const x = centerX + radius * p.cos(angle);
+            const y = centerY + radius * p.sin(angle);
             
-            this.ctx.save();
-            this.ctx.translate(x, y);
-            this.ctx.rotate(angle + Math.PI / 2);
-            this.ctx.fillText(text[i], 0, 0);
-            this.ctx.restore();
+            p.push();
+            p.translate(x, y);
+            p.rotate(angle + p.PI / 2);
+            p.text(text[i], 0, 0);
+            p.pop();
         }
     }
     
@@ -252,12 +260,12 @@ class TextTickerTool {
             const reader = new FileReader();
             reader.onload = (e) => {
                 this.backgroundImageDataUrl = e.target.result;
-                const img = new Image();
-                img.onload = () => {
-                    this.backgroundImageElement = img;
-                    this.renderText();
-                };
-                img.src = this.backgroundImageDataUrl;
+                if (this.p5Instance) {
+                    this.p5Instance.loadImage(this.backgroundImageDataUrl, (img) => {
+                        this.backgroundImageElement = img;
+                        this.renderText();
+                    });
+                }
             };
             reader.readAsDataURL(file);
         }
@@ -269,12 +277,12 @@ class TextTickerTool {
             const reader = new FileReader();
             reader.onload = (e) => {
                 this.foregroundImageDataUrl = e.target.result;
-                const img = new Image();
-                img.onload = () => {
-                    this.foregroundImageElement = img;
-                    this.renderText();
-                };
-                img.src = this.foregroundImageDataUrl;
+                if (this.p5Instance) {
+                    this.p5Instance.loadImage(this.foregroundImageDataUrl, (img) => {
+                        this.foregroundImageElement = img;
+                        this.renderText();
+                    });
+                }
             };
             reader.readAsDataURL(file);
         }
@@ -308,16 +316,16 @@ class TextTickerTool {
     }
     
     exportPNG() {
-        const link = document.createElement('a');
-        link.download = 'text-ticker-export.png';
-        link.href = this.canvas.toDataURL();
-        link.click();
+        if (!this.p5Instance) return;
+        
+        // Use P5.js save function
+        this.p5Instance.save('text-ticker-export.png');
         this.hideExportModal();
     }
     
     async exportMP4() {
         // Placeholder for MP4 export functionality
-        // This would require implementing animation frames and FFmpeg integration
+        // This would require implementing animation frames with P5.js
         alert('MP4 export will be implemented in the next phase');
         this.hideExportModal();
     }
