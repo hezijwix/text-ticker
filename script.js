@@ -122,7 +122,7 @@ class TextTickerTool {
         };
         
         // Text Ribbon properties
-        this.ribbonMode = "character";  // "off", "character", "shapePath"
+        this.ribbonMode = "character";  // "off", "character", "shapePath", "wordsBound"
         this.ribbonWidth = 0.25;  // Proportional to font size
         this.ribbonColor = "#ff0000";
         
@@ -613,6 +613,8 @@ class TextTickerTool {
             this.drawShapePathRibbon(p);
         } else if (this.ribbonMode === "character") {
             this.drawCharacterRibbon(p);
+        } else if (this.ribbonMode === "wordsBound") {
+            this.drawWordsBoundRibbon(p);
         } else {
         }
         
@@ -1117,6 +1119,233 @@ class TextTickerTool {
         ctx.rect(-rectWidth/2, -rectHeight/2, rectWidth, rectHeight);
         ctx.fill();
         
+        ctx.restore();
+    }
+    
+    parseTextIntoWords(text) {
+        // Split text into words while preserving word boundaries and positions
+        const words = [];
+        let currentWord = '';
+        let wordStartIndex = 0;
+        let characterIndex = 0;
+        
+        for (let i = 0; i < text.length; i++) {
+            const char = text[i];
+            
+            if (char === ' ' || char === '\t' || char === '\n' || char === '\r') {
+                // End of current word
+                if (currentWord.length > 0) {
+                    words.push({
+                        text: currentWord,
+                        startIndex: wordStartIndex,
+                        endIndex: i - 1,
+                        length: currentWord.length
+                    });
+                    currentWord = '';
+                }
+                
+                // Skip spaces and find next word start
+                while (i < text.length && (text[i] === ' ' || text[i] === '\t' || text[i] === '\n' || text[i] === '\r')) {
+                    i++;
+                }
+                
+                if (i < text.length) {
+                    wordStartIndex = i;
+                    currentWord = text[i];
+                } else {
+                    break;
+                }
+            } else {
+                // Add character to current word
+                if (currentWord.length === 0) {
+                    wordStartIndex = i;
+                }
+                currentWord += char;
+            }
+        }
+        
+        // Add the last word if it exists
+        if (currentWord.length > 0) {
+            words.push({
+                text: currentWord,
+                startIndex: wordStartIndex,
+                endIndex: text.length - 1,
+                length: currentWord.length
+            });
+        }
+        
+        return words;
+    }
+    
+    drawWordsBoundRibbon(p) {
+        const text = this.currentText;
+        
+        // Skip if no text
+        if (!text || text.length === 0) {
+            return;
+        }
+        
+        const rotation = this.currentRotation * (Math.PI / 180);
+        
+        // Calculate ribbon border width proportional to font size
+        const borderWidth = this.currentFontSize * this.ribbonWidth;
+        
+        // Use Canvas 2D API for precise border rendering
+        const canvas = p.canvas;
+        const ctx = canvas.getContext('2d');
+        
+        // Save current canvas state
+        ctx.save();
+        
+        // Center coordinates
+        const centerX = p.width / 2;
+        const centerY = p.height / 2;
+        
+        // Move to center and apply rotation
+        ctx.translate(centerX, centerY);
+        ctx.rotate(rotation);
+        
+        // Set border/ribbon properties for stroke-based rendering
+        ctx.strokeStyle = this.ribbonColor;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
+        // Set font properties to calculate character dimensions
+        ctx.font = `${this.currentFontWeight} ${this.currentFontSize}px "${this.currentFontFamily}", sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        // Parse text into words and draw ribbons for each word
+        const words = this.parseTextIntoWords(text);
+        this.drawWordRibbonsForCurrentShape(ctx, text, words, borderWidth);
+        
+        // Restore canvas state
+        ctx.restore();
+    }
+    
+    drawWordRibbonsForCurrentShape(ctx, text, words, borderWidth) {
+        // Draw word ribbons based on current shape
+        switch (this.currentShape) {
+            case 'circle':
+                this.drawCircleWordRibbons(ctx, text, words, borderWidth);
+                break;
+            case 'rectangle':
+                this.drawRectangleWordRibbons(ctx, text, words, borderWidth);
+                break;
+        }
+    }
+    
+    drawCircleWordRibbons(ctx, text, words, borderWidth) {
+        const radius = this.shapeParameters.circle.radius;
+        const angleStep = (2 * Math.PI) / text.length;
+        const animationOffsetRadians = (this.animationOffset * Math.PI) / 180;
+        
+        // Calculate border padding
+        const borderPadding = borderWidth * 0.5;
+        const ribbonHeight = this.currentFontSize + borderPadding * 2;
+        
+        for (const word of words) {
+            // Calculate word boundaries on the circle
+            const wordStartAngle = angleStep * word.startIndex + animationOffsetRadians;
+            const wordEndAngle = angleStep * word.endIndex + animationOffsetRadians;
+            const wordCenterAngle = (wordStartAngle + wordEndAngle) / 2;
+            
+            // Calculate word width for ribbon sizing
+            const wordWidth = ctx.measureText(word.text).width;
+            const wordAngleSpan = wordEndAngle - wordStartAngle;
+            
+            // Draw ribbon arc for the entire word
+            this.drawSingleWordRibbonOnCircle(ctx, word, wordCenterAngle, wordAngleSpan, radius, wordWidth, ribbonHeight, borderPadding);
+        }
+    }
+    
+    drawRectangleWordRibbons(ctx, text, words, borderWidth) {
+        const width = this.shapeParameters.rectangle.width;
+        const height = this.shapeParameters.rectangle.height;
+        const cornerRadius = this.shapeParameters.rectangle.cornerRadius;
+        
+        // Use rounded rectangle path if corner radius is specified
+        const pathCalculator = cornerRadius > 0 ? 
+            this.getRoundedRectanglePathPoint.bind(this) : 
+            this.getRectanglePathPoint.bind(this);
+        
+        // Calculate perimeter based on whether we have rounded corners
+        const perimeter = cornerRadius > 0 ? 
+            this.getRoundedRectanglePerimeter(width, height, cornerRadius) : 
+            2 * (width + height);
+        const charSpacing = perimeter / text.length;
+        const animationOffsetDistance = (this.animationOffset / 360) * perimeter;
+        
+        // Calculate border padding
+        const borderPadding = borderWidth * 0.5;
+        const ribbonHeight = this.currentFontSize + borderPadding * 2;
+        
+        for (const word of words) {
+            // Calculate word boundaries along the rectangle perimeter
+            const wordStartDistance = (word.startIndex * charSpacing + animationOffsetDistance) % perimeter;
+            const wordEndDistance = (word.endIndex * charSpacing + animationOffsetDistance) % perimeter;
+            
+            // Calculate word width for ribbon sizing
+            const wordWidth = ctx.measureText(word.text).width;
+            
+            // Draw ribbon segment for the entire word
+            this.drawSingleWordRibbonOnRectangle(ctx, word, wordStartDistance, wordEndDistance, width, height, cornerRadius, wordWidth, ribbonHeight, borderPadding, perimeter, pathCalculator);
+        }
+    }
+    
+    drawSingleWordRibbonOnCircle(ctx, word, centerAngle, angleSpan, radius, wordWidth, ribbonHeight, borderPadding) {
+        ctx.save();
+        
+        // Calculate start and end angles for the word
+        const startAngle = centerAngle - angleSpan / 2;
+        const endAngle = centerAngle + angleSpan / 2;
+        
+        // Set stroke properties for curved ribbon
+        ctx.lineWidth = ribbonHeight;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
+        // Draw curved ribbon arc segment for this word
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, startAngle, endAngle);
+        ctx.stroke();
+        
+        ctx.restore();
+    }
+    
+    drawSingleWordRibbonOnRectangle(ctx, word, startDistance, endDistance, width, height, cornerRadius, wordWidth, ribbonHeight, borderPadding, perimeter, pathCalculator) {
+        ctx.save();
+        
+        // Handle case where word might wrap around the rectangle (from end back to start)
+        let wordDistance = endDistance - startDistance;
+        if (wordDistance < 0) {
+            wordDistance += perimeter;
+        }
+        
+        // Set stroke properties for path ribbon
+        ctx.lineWidth = ribbonHeight;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
+        // Draw path segment along rectangle perimeter for this word
+        ctx.beginPath();
+        
+        // Sample points along the word's portion of the rectangle path
+        const pathResolution = Math.max(10, Math.ceil(wordDistance / 5)); // Sample every ~5 units or at least 10 points
+        
+        for (let i = 0; i <= pathResolution; i++) {
+            const progress = i / pathResolution;
+            const currentDistance = (startDistance + wordDistance * progress) % perimeter;
+            const point = pathCalculator(currentDistance, width, height, cornerRadius);
+            
+            if (i === 0) {
+                ctx.moveTo(point.x, point.y);
+            } else {
+                ctx.lineTo(point.x, point.y);
+            }
+        }
+        
+        ctx.stroke();
         ctx.restore();
     }
     
