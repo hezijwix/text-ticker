@@ -18,6 +18,10 @@ class TextTickerTool {
         this.fontWeightValue = document.getElementById('fontWeightValue');
         this.textColorPicker = document.getElementById('textColorPicker');
         
+        // Debug X-Height controls
+        this.xHeightSlider = document.getElementById('xHeightSlider');
+        this.xHeightValue = document.getElementById('xHeightValue');
+        
         // Shape control
         this.shapeTypeSelect = document.getElementById('shapeTypeSelect');
         
@@ -36,8 +40,6 @@ class TextTickerTool {
         // Shape controls - Triangle
         this.triangleSizeSlider = document.getElementById('triangleSizeSlider');
         this.triangleSizeValue = document.getElementById('triangleSizeValue');
-        this.triangleCornerSlider = document.getElementById('triangleCornerSlider');
-        this.triangleCornerValue = document.getElementById('triangleCornerValue');
         
         // Common rotation control
         this.rotationSlider = document.getElementById('rotationSlider');
@@ -103,6 +105,7 @@ class TextTickerTool {
         this.currentFontWeight = 500;
         this.currentTextColor = "#ffffff";
         this.currentRotation = 0;
+        this.xHeightDebugOffset = 2; // X-Height offset for proper alignment
         
         // Shape system
         this.currentShape = "circle";
@@ -116,8 +119,7 @@ class TextTickerTool {
                 cornerRadius: 0
             },
             triangle: {
-                size: 200,
-                cornerRadius: 0
+                size: 200
             }
         };
         
@@ -269,6 +271,13 @@ class TextTickerTool {
             this.renderText();
         });
         
+        // Debug X-Height slider
+        this.xHeightSlider.addEventListener('input', () => {
+            this.xHeightDebugOffset = parseFloat(this.xHeightSlider.value);
+            this.xHeightValue.textContent = this.xHeightDebugOffset.toFixed(1);
+            this.renderText();
+        });
+        
         // Shape type selection
         this.shapeTypeSelect.addEventListener('change', () => {
             this.currentShape = this.shapeTypeSelect.value;
@@ -306,12 +315,6 @@ class TextTickerTool {
         this.triangleSizeSlider.addEventListener('input', () => {
             this.shapeParameters.triangle.size = parseFloat(this.triangleSizeSlider.value);
             this.triangleSizeValue.textContent = this.shapeParameters.triangle.size;
-            this.renderText();
-        });
-        
-        this.triangleCornerSlider.addEventListener('input', () => {
-            this.shapeParameters.triangle.cornerRadius = parseFloat(this.triangleCornerSlider.value);
-            this.triangleCornerValue.textContent = this.shapeParameters.triangle.cornerRadius;
             this.renderText();
         });
         
@@ -611,7 +614,13 @@ class TextTickerTool {
         ctx.fillStyle = this.currentTextColor;
         ctx.font = `${this.currentFontWeight} ${this.currentFontSize}px "${this.currentFontFamily}", sans-serif`;
         ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
+        ctx.textBaseline = 'alphabetic'; // Changed from 'middle' for better x-height alignment
+        
+        // Calculate font metrics for proper vertical centering
+        const metrics = ctx.measureText('Mg'); // Use letters with ascenders and descenders
+        const fontHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+        const baseXHeightOffset = -fontHeight / 2 + metrics.actualBoundingBoxAscent; // Center based on actual glyph bounds
+        const xHeightOffset = baseXHeightOffset + this.xHeightDebugOffset; // Add debug adjustment
         
         const angleStep = (2 * Math.PI) / text.length;
         
@@ -623,7 +632,7 @@ class TextTickerTool {
             ctx.save();
             ctx.translate(x, y);
             ctx.rotate(angle + Math.PI / 2);
-            ctx.fillText(text[i], 0, 0);
+            ctx.fillText(text[i], 0, xHeightOffset);
             ctx.restore();
         }
         
@@ -693,20 +702,33 @@ class TextTickerTool {
         ctx.fillStyle = this.currentTextColor;
         ctx.font = `${this.currentFontWeight} ${this.currentFontSize}px "${this.currentFontFamily}", sans-serif`;
         ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
+        ctx.textBaseline = 'alphabetic'; // Changed from 'middle' for consistency
         
-        // Calculate rectangle perimeter for text distribution
-        const perimeter = 2 * (width + height);
-        const charSpacing = perimeter / text.length;
+        // Calculate font metrics for proper vertical centering
+        const metrics = ctx.measureText('Mg');
+        const fontHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+        const baseXHeightOffset = -fontHeight / 2 + metrics.actualBoundingBoxAscent;
+        const xHeightOffset = baseXHeightOffset + this.xHeightDebugOffset; // Add debug adjustment
+        
+        // Use rounded rectangle path if corner radius is specified
+        const pathCalculator = cornerRadius > 0 ? 
+            this.getRoundedRectanglePathPoint.bind(this) : 
+            this.getRectanglePathPoint.bind(this);
+        
+        // Calculate perimeter based on whether we have rounded corners
+        const perimeter = cornerRadius > 0 ? 
+            this.getRoundedRectanglePerimeter(width, height, cornerRadius) : 
+            2 * (width + height);
+        const charSpacing = perimeter / text.length; // Distribute evenly around closed path
         
         for (let i = 0; i < text.length; i++) {
             const distanceAlongPerimeter = i * charSpacing;
-            const pathPoint = this.getRectanglePathPoint(distanceAlongPerimeter, width, height);
+            const pathPoint = pathCalculator(distanceAlongPerimeter, width, height, cornerRadius);
             
             ctx.save();
             ctx.translate(pathPoint.x, pathPoint.y);
             ctx.rotate(pathPoint.angle);
-            ctx.fillText(text[i], 0, 0);
+            ctx.fillText(text[i], 0, xHeightOffset);
             ctx.restore();
         }
         
@@ -753,10 +775,122 @@ class TextTickerTool {
         return { x, y, angle };
     }
     
+    getRoundedRectanglePerimeter(width, height, cornerRadius) {
+        // Calculate perimeter including rounded corners
+        // Straight segments: (width - 2*r) * 2 + (height - 2*r) * 2
+        // Curved segments: 4 * (π*r/2) = 2*π*r
+        const clampedRadius = Math.min(cornerRadius, width / 2, height / 2);
+        const straightPerimeter = 2 * (width - 2 * clampedRadius) + 2 * (height - 2 * clampedRadius);
+        const curvedPerimeter = 2 * Math.PI * clampedRadius;
+        return straightPerimeter + curvedPerimeter;
+    }
+    
+    getRoundedRectanglePathPoint(distance, width, height, cornerRadius) {
+        const halfWidth = width / 2;
+        const halfHeight = height / 2;
+        const clampedRadius = Math.min(cornerRadius, halfWidth, halfHeight);
+        
+        const perimeter = this.getRoundedRectanglePerimeter(width, height, cornerRadius);
+        // Proper modulo that handles negative values correctly
+        const normalizedDistance = ((distance % perimeter) + perimeter) % perimeter;
+        
+        // Calculate segment lengths
+        const topStraight = width - 2 * clampedRadius;
+        const rightStraight = height - 2 * clampedRadius;
+        const bottomStraight = width - 2 * clampedRadius;
+        const leftStraight = height - 2 * clampedRadius;
+        const quarterArc = Math.PI * clampedRadius / 2;
+        
+        // Pre-calculate cumulative distances for each segment (8 total: 4 straights + 4 arcs)
+        const segments = [
+            { length: topStraight, start: 0 },
+            { length: quarterArc, start: topStraight },
+            { length: rightStraight, start: topStraight + quarterArc },
+            { length: quarterArc, start: topStraight + quarterArc + rightStraight },
+            { length: bottomStraight, start: topStraight + 2 * quarterArc + rightStraight },
+            { length: quarterArc, start: topStraight + 2 * quarterArc + rightStraight + bottomStraight },
+            { length: leftStraight, start: topStraight + 3 * quarterArc + rightStraight + bottomStraight },
+            { length: quarterArc, start: topStraight + 3 * quarterArc + rightStraight + bottomStraight + leftStraight }
+        ];
+        
+        let x, y, angle;
+        
+        // Top edge (left to right)
+        if (normalizedDistance <= segments[0].start + segments[0].length) {
+            const progress = (normalizedDistance - segments[0].start) / segments[0].length;
+            x = -halfWidth + clampedRadius + progress * topStraight;
+            y = -halfHeight;
+            angle = 0;
+        }
+        // Top-right corner
+        else if (normalizedDistance <= segments[1].start + segments[1].length) {
+            const progress = (normalizedDistance - segments[1].start) / segments[1].length;
+            const cornerAngle = progress * Math.PI / 2;
+            const centerX = halfWidth - clampedRadius;
+            const centerY = -halfHeight + clampedRadius;
+            x = centerX + clampedRadius * Math.cos(-Math.PI / 2 + cornerAngle);
+            y = centerY + clampedRadius * Math.sin(-Math.PI / 2 + cornerAngle);
+            angle = cornerAngle;
+        }
+        // Right edge (top to bottom)
+        else if (normalizedDistance <= segments[2].start + segments[2].length) {
+            const progress = (normalizedDistance - segments[2].start) / segments[2].length;
+            x = halfWidth;
+            y = -halfHeight + clampedRadius + progress * rightStraight;
+            angle = Math.PI / 2;
+        }
+        // Bottom-right corner
+        else if (normalizedDistance <= segments[3].start + segments[3].length) {
+            const progress = (normalizedDistance - segments[3].start) / segments[3].length;
+            const cornerAngle = progress * Math.PI / 2;
+            const centerX = halfWidth - clampedRadius;
+            const centerY = halfHeight - clampedRadius;
+            x = centerX + clampedRadius * Math.cos(0 + cornerAngle);
+            y = centerY + clampedRadius * Math.sin(0 + cornerAngle);
+            angle = Math.PI / 2 + cornerAngle;
+        }
+        // Bottom edge (right to left)
+        else if (normalizedDistance <= segments[4].start + segments[4].length) {
+            const progress = (normalizedDistance - segments[4].start) / segments[4].length;
+            x = halfWidth - clampedRadius - progress * bottomStraight;
+            y = halfHeight;
+            angle = Math.PI;
+        }
+        // Bottom-left corner
+        else if (normalizedDistance <= segments[5].start + segments[5].length) {
+            const progress = (normalizedDistance - segments[5].start) / segments[5].length;
+            const cornerAngle = progress * Math.PI / 2;
+            const centerX = -halfWidth + clampedRadius;
+            const centerY = halfHeight - clampedRadius;
+            x = centerX + clampedRadius * Math.cos(Math.PI / 2 + cornerAngle);
+            y = centerY + clampedRadius * Math.sin(Math.PI / 2 + cornerAngle);
+            angle = Math.PI + cornerAngle;
+        }
+        // Left edge (bottom to top)
+        else if (normalizedDistance <= segments[6].start + segments[6].length) {
+            const progress = (normalizedDistance - segments[6].start) / segments[6].length;
+            x = -halfWidth;
+            y = halfHeight - clampedRadius - progress * leftStraight;
+            angle = -Math.PI / 2;
+        }
+        // Top-left corner (last arc connecting back to start)
+        else {
+            const progress = (normalizedDistance - segments[7].start) / segments[7].length;
+            const cornerAngle = progress * Math.PI / 2;
+            const centerX = -halfWidth + clampedRadius;
+            const centerY = -halfHeight + clampedRadius;
+            // Arc from left edge to top edge: starts at 180° and goes to 270° (-90°)
+            x = centerX + clampedRadius * Math.cos(Math.PI + cornerAngle);
+            y = centerY + clampedRadius * Math.sin(Math.PI + cornerAngle);
+            angle = -Math.PI / 2 + cornerAngle;
+        }
+        
+        return { x, y, angle };
+    }
+    
     drawTextOnTriangle(p) {
         const text = this.currentText;
         const size = this.shapeParameters.triangle.size;
-        const cornerRadius = this.shapeParameters.triangle.cornerRadius;
         const rotation = this.currentRotation * (Math.PI / 180);
         
         
@@ -779,7 +913,13 @@ class TextTickerTool {
         ctx.fillStyle = this.currentTextColor;
         ctx.font = `${this.currentFontWeight} ${this.currentFontSize}px "${this.currentFontFamily}", sans-serif`;
         ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
+        ctx.textBaseline = 'alphabetic'; // Changed from 'middle' for consistency
+        
+        // Calculate font metrics for proper vertical centering
+        const metrics = ctx.measureText('Mg');
+        const fontHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+        const baseXHeightOffset = -fontHeight / 2 + metrics.actualBoundingBoxAscent;
+        const xHeightOffset = baseXHeightOffset + this.xHeightDebugOffset; // Add debug adjustment
         
         // Calculate triangle perimeter for text distribution
         const sideLength = size;
@@ -793,7 +933,7 @@ class TextTickerTool {
             ctx.save();
             ctx.translate(pathPoint.x, pathPoint.y);
             ctx.rotate(pathPoint.angle);
-            ctx.fillText(text[i], 0, 0);
+            ctx.fillText(text[i], 0, xHeightOffset);
             ctx.restore();
         }
         
@@ -825,7 +965,7 @@ class TextTickerTool {
             const end = vertices[2];
             x = start.x + progress * (end.x - start.x);
             y = start.y + progress * (end.y - start.y);
-            angle = Math.atan2(end.y - start.y, end.x - start.x) + Math.PI / 2;
+            angle = Math.atan2(end.y - start.y, end.x - start.x); // Use the tangent angle without additional rotation
         } else if (normalizedDistance <= 2 * sideLength) {
             // Side 2: Bottom-right to bottom-left
             const progress = (normalizedDistance - sideLength) / sideLength;
@@ -833,7 +973,7 @@ class TextTickerTool {
             const end = vertices[1];
             x = start.x + progress * (end.x - start.x);
             y = start.y + progress * (end.y - start.y);
-            angle = Math.atan2(end.y - start.y, end.x - start.x) + Math.PI / 2;
+            angle = Math.atan2(end.y - start.y, end.x - start.x); // Use the tangent angle without additional rotation
         } else {
             // Side 3: Bottom-left to top
             const progress = (normalizedDistance - 2 * sideLength) / sideLength;
@@ -841,7 +981,7 @@ class TextTickerTool {
             const end = vertices[0];
             x = start.x + progress * (end.x - start.x);
             y = start.y + progress * (end.y - start.y);
-            angle = Math.atan2(end.y - start.y, end.x - start.x) + Math.PI / 2;
+            angle = Math.atan2(end.y - start.y, end.x - start.x); // Use the tangent angle without additional rotation
         }
         
         return { x, y, angle };
@@ -911,7 +1051,6 @@ class TextTickerTool {
     
     drawTrianglePathRibbon(ctx) {
         const size = this.shapeParameters.triangle.size;
-        const cornerRadius = this.shapeParameters.triangle.cornerRadius;
         
         // Calculate triangle vertices (equilateral triangle)
         const height = size * Math.sqrt(3) / 2;
@@ -923,35 +1062,11 @@ class TextTickerTool {
         
         ctx.beginPath();
         
-        if (cornerRadius > 0 && typeof ctx.arcTo === 'function') {
-            // Draw triangle with rounded corners using arcTo (if supported)
-            try {
-                ctx.moveTo(vertices[0].x, vertices[0].y - cornerRadius);
-                
-                for (let i = 0; i < 3; i++) {
-                    const current = vertices[i];
-                    const next = vertices[(i + 1) % 3];
-                    const nextNext = vertices[(i + 2) % 3];
-                    
-                    ctx.arcTo(next.x, next.y, nextNext.x, nextNext.y, cornerRadius);
-                }
-                
-                ctx.closePath();
-            } catch (error) {
-                // Fallback to regular triangle if arcTo fails
-                ctx.beginPath();
-                ctx.moveTo(vertices[0].x, vertices[0].y);
-                ctx.lineTo(vertices[1].x, vertices[1].y);
-                ctx.lineTo(vertices[2].x, vertices[2].y);
-                ctx.closePath();
-            }
-        } else {
-            // Draw regular triangle
-            ctx.moveTo(vertices[0].x, vertices[0].y);
-            ctx.lineTo(vertices[1].x, vertices[1].y);
-            ctx.lineTo(vertices[2].x, vertices[2].y);
-            ctx.closePath();
-        }
+        // Always draw regular triangle with sharp corners
+        ctx.moveTo(vertices[0].x, vertices[0].y);
+        ctx.lineTo(vertices[1].x, vertices[1].y);
+        ctx.lineTo(vertices[2].x, vertices[2].y);
+        ctx.closePath();
         
         ctx.stroke();
     }
@@ -1036,12 +1151,22 @@ class TextTickerTool {
     drawRectangleRibbon(ctx, text, borderWidth) {
         const width = this.shapeParameters.rectangle.width;
         const height = this.shapeParameters.rectangle.height;
-        const perimeter = 2 * (width + height);
+        const cornerRadius = this.shapeParameters.rectangle.cornerRadius;
+        
+        // Use rounded rectangle path if corner radius is specified
+        const pathCalculator = cornerRadius > 0 ? 
+            this.getRoundedRectanglePathPoint.bind(this) : 
+            this.getRectanglePathPoint.bind(this);
+        
+        // Calculate perimeter based on whether we have rounded corners
+        const perimeter = cornerRadius > 0 ? 
+            this.getRoundedRectanglePerimeter(width, height, cornerRadius) : 
+            2 * (width + height);
         const charSpacing = perimeter / text.length;
         
         for (let i = 0; i < text.length; i++) {
             const distanceAlongPerimeter = i * charSpacing;
-            const pathPoint = this.getRectanglePathPoint(distanceAlongPerimeter, width, height);
+            const pathPoint = pathCalculator(distanceAlongPerimeter, width, height, cornerRadius);
             
             this.drawSingleCharacterRibbon(ctx, text[i], pathPoint.x, pathPoint.y, pathPoint.angle, borderWidth);
         }
@@ -1061,6 +1186,11 @@ class TextTickerTool {
     }
     
     drawSingleCharacterRibbon(ctx, char, x, y, angle, borderWidth) {
+        // Skip drawing borders for space characters
+        if (char === ' ' || char === '\t' || char === '\n' || char === '\r') {
+            return;
+        }
+        
         // Get character metrics for accurate border sizing
         const metrics = ctx.measureText(char);
         const charWidth = metrics.width;
@@ -1070,22 +1200,14 @@ class TextTickerTool {
         ctx.translate(x, y);
         ctx.rotate(angle);
         
-        // Draw rounded rectangle border behind character
+        // Draw sharp rectangle border behind character (no rounded corners)
         const borderPadding = borderWidth * 0.5;
         const rectWidth = charWidth + borderPadding * 2;
         const rectHeight = charHeight + borderPadding * 2;
         
-        // Create rounded rectangle path
-        const cornerRadius = Math.min(borderWidth * 0.3, rectWidth * 0.2, rectHeight * 0.2);
-        
+        // Always draw simple rectangle with sharp corners
         ctx.beginPath();
-        if (typeof ctx.roundRect === 'function') {
-            // Modern browsers with roundRect support
-            ctx.roundRect(-rectWidth/2, -rectHeight/2, rectWidth, rectHeight, cornerRadius);
-        } else {
-            // Fallback for older browsers - draw simple rectangle
-            ctx.rect(-rectWidth/2, -rectHeight/2, rectWidth, rectHeight);
-        }
+        ctx.rect(-rectWidth/2, -rectHeight/2, rectWidth, rectHeight);
         ctx.fill();
         
         ctx.restore();
