@@ -3,10 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project Template</title>
+    <title>Text Ticker Tool</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Three.js CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
         <!-- JSZip for PNG sequence zipping -->
         <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <!-- FFmpeg.js for MP4 conversion -->
@@ -16,7 +14,7 @@
 <body>
     <!-- Header -->
     <div class="header">
-        <div class="header-title">SV Generative Gallery V1.0</div>
+        <div class="header-title">Text Ticker Tool V1.0</div>
         <div class="header-credit">MADE BY STUDIO-VIDEO</div>
     </div>
 
@@ -32,171 +30,34 @@
             </div>
             
             <div class="controls-section">
-                <h4>Gallery Images</h4>
-                <div class="image-upload-container">
-                    <div class="upload-area" id="uploadArea">
-                        <div class="upload-button" id="uploadButton">
-                            <span class="upload-icon">+</span>
-                            <span class="upload-text">Add Image</span>
-                        </div>
-                        <input type="file" id="imageInput" accept="image/*" multiple style="display: none;">
-                    </div>
-                    <div class="thumbnails-container" id="thumbnailsContainer">
-                        <!-- Thumbnails will be added here dynamically -->
-                    </div>
+                <h4>Text Content</h4>
+                <div class="text-input-container">
+                    <textarea id="textInput" placeholder="Enter your text here..." rows="3" class="text-input-box"></textarea>
                 </div>
             </div>
 
             <div class="controls-section">
-                <h4>Gallery Preset</h4>
+                <h4>Path Preset</h4>
                 <div class="preset-control-row">
                     <label for="presetSelect">Type:</label>
                     <select id="presetSelect" class="preset-select">
-                        <option value="ring">Ring</option>
-                        <option value="follow-spline">Follow Spline</option>
-                        <option value="cursor-trail">Cursor Trail</option>
-                        <option value="shuffle">Shuffle</option>
+                        <option value="shape">Shape</option>
                     </select>
                 </div>
             </div>
 
-            <div class="controls-section" id="splinePropertiesSection" style="display: none;">
-                <h4>Spline Properties</h4>
-                <div class="slider-control-row">
-                    <label for="splineSpeedSlider">Speed:</label>
-                    <input type="range" id="splineSpeedSlider" min="0" max="3" step="0.1" value="0.5" class="control-slider">
-                    <span id="splineSpeedValue">0.5</span>
-                </div>
-                <div class="slider-control-row">
-                    <label for="splineScaleSlider">Scale:</label>
-                    <input type="range" id="splineScaleSlider" min="0.2" max="10" step="0.1" value="1" class="control-slider">
-                    <span id="splineScaleValue">1.0</span>
-                </div>
-                <div class="slider-control-row">
-                    <label for="splineDensitySlider">Density:</label>
-                    <input type="range" id="splineDensitySlider" min="1" max="10" step="1" value="1" class="control-slider">
-                    <span id="splineDensityValue">1</span>
-                </div>
-            </div>
-
-            <div class="controls-section" id="cursorTrailPropertiesSection" style="display: none;">
-                <h4>Cursor Trail Properties</h4>
-                <div class="slider-control-row">
-                    <label for="trailSpeedSlider">Follow Speed:</label>
-                    <input type="range" id="trailSpeedSlider" min="0.1" max="2.0" step="0.1" value="0.5" class="control-slider">
-                    <span id="trailSpeedValue">0.5</span>
-                </div>
-                <div class="slider-control-row">
-                    <label for="trailScaleSlider">Scale:</label>
-                    <input type="range" id="trailScaleSlider" min="0.2" max="10" step="0.1" value="1" class="control-slider">
-                    <span id="trailScaleValue">1.0</span>
-                </div>
-                <div class="frame-control-row">
-                    <label for="animateScaleToggle">Animate Scale:</label>
-                    <div class="toggle-switch" id="animateScaleToggle">
-                        <input type="checkbox" id="animateScaleCheckbox" class="toggle-checkbox">
-                        <label for="animateScaleCheckbox" class="toggle-label">
-                            <span class="toggle-slider"></span>
-                            <span class="toggle-text">OFF</span>
-                        </label>
-                    </div>
-                </div>
-                <div class="slider-control-row" id="scaleFrequencyRow" style="display: none;">
-                    <label for="scaleFrequencySlider">Frequency:</label>
-                    <input type="range" id="scaleFrequencySlider" min="0.1" max="5.0" step="0.1" value="1.0" class="control-slider">
-                    <span id="scaleFrequencyValue">1.0</span>
-                </div>
-                <div class="slider-control-row" id="scaleAmplitudeRow" style="display: none;">
-                    <label for="scaleAmplitudeSlider">Amplitude:</label>
-                    <input type="range" id="scaleAmplitudeSlider" min="0.1" max="2.0" step="0.1" value="0.5" class="control-slider">
-                    <span id="scaleAmplitudeValue">0.5</span>
-                </div>
-            </div>
-
-            <div class="controls-section" id="shufflePropertiesSection" style="display: none;">
-                <h4>Shuffle Properties</h4>
-                <div class="frame-control-row">
-                    <label for="seedInput">Seed:</label>
-                    <div class="seed-input-group">
-                        <button class="seed-btn" id="seedDecrementBtn">-</button>
-                        <input type="text" id="seedInput" value="0" class="seed-input" maxlength="4">
-                        <button class="seed-btn" id="seedIncrementBtn">+</button>
-                    </div>
-                </div>
-                <div class="slider-control-row">
-                    <label for="scatterPositionSlider">Scatter Position:</label>
-                    <input type="range" id="scatterPositionSlider" min="0.1" max="1.0" step="0.1" value="1.0" class="control-slider">
-                    <span id="scatterPositionValue">1.0</span>
-                </div>
-                <div class="slider-control-row">
-                    <label for="shuffleScaleSlider">Scale:</label>
-                    <input type="range" id="shuffleScaleSlider" min="0.3" max="3.0" step="0.1" value="1.0" class="control-slider">
-                    <span id="shuffleScaleValue">1.0</span>
-                </div>
-                <div class="slider-control-row">
-                    <label for="scatterScaleSlider">Scatter Scale:</label>
-                    <input type="range" id="scatterScaleSlider" min="0.0" max="3.0" step="0.1" value="1.0" class="control-slider">
-                    <span id="scatterScaleValue">1.0</span>
-                </div>
-                <div class="frame-control-row">
-                    <label for="animateToggle">Animate:</label>
-                    <div class="toggle-switch" id="animateToggle">
-                        <input type="checkbox" id="animateCheckbox" class="toggle-checkbox">
-                        <label for="animateCheckbox" class="toggle-label">
-                            <span class="toggle-slider"></span>
-                            <span class="toggle-text">OFF</span>
-                        </label>
-                    </div>
-                </div>
-                <div class="slider-control-row">
-                    <label for="shuffleSpeedSlider">Animation Speed:</label>
-                    <input type="range" id="shuffleSpeedSlider" min="0.1" max="2" step="0.1" value="0.8" class="control-slider">
-                    <span id="shuffleSpeedValue">0.8</span>
-                </div>
-                <div class="slider-control-row">
-                    <label for="shuffleIntervalSlider">Shuffle Interval:</label>
-                    <input type="range" id="shuffleIntervalSlider" min="1" max="10" step="0.5" value="3" class="control-slider">
-                    <span id="shuffleIntervalValue">3.0s</span>
-                </div>
-            </div>
-
-            <div class="controls-section" id="imageScaleSection">
-                <h4>Image Scale</h4>
-                <div class="slider-control-row">
-                    <label for="scaleSlider">Scale:</label>
-                    <input type="range" id="scaleSlider" min="0.5" max="6" step="0.1" value="1.5" class="control-slider">
-                    <span id="scaleValue">1.5</span>
-                </div>
-            </div>
-
-            <div class="controls-section" id="circlePropertiesSection">
-                <h4>Circle Properties</h4>
+            <div class="controls-section" id="shapePropertiesSection">
+                <h4>Shape Properties</h4>
                 <div class="slider-control-row">
                     <label for="radiusSlider">Radius:</label>
-                    <input type="range" id="radiusSlider" min="1" max="8" step="0.1" value="3" class="control-slider">
-                    <span id="radiusValue">3.0</span>
+                    <input type="range" id="radiusSlider" min="50" max="300" step="10" value="150" class="control-slider">
+                    <span id="radiusValue">150</span>
                 </div>
                 <div class="slider-control-row">
-                    <label for="heightSlider">Height:</label>
-                    <input type="range" id="heightSlider" min="-3" max="3" step="0.1" value="0" class="control-slider">
-                    <span id="heightValue">0.0</span>
+                    <label for="rotationSlider">Rotation:</label>
+                    <input type="range" id="rotationSlider" min="0" max="360" step="1" value="0" class="control-slider">
+                    <span id="rotationValue">0°</span>
                 </div>
-                <div class="slider-control-row">
-                    <label for="speedSlider">Speed:</label>
-                    <input type="range" id="speedSlider" min="0" max="2" step="0.1" value="0.5" class="control-slider">
-                    <span id="speedValue">0.5</span>
-                </div>
-                <div class="slider-control-row">
-                    <label for="rotationXSlider">X Rotation:</label>
-                    <input type="range" id="rotationXSlider" min="-180" max="180" step="1" value="0" class="control-slider">
-                    <span id="rotationXValue">0°</span>
-                </div>
-                <div class="slider-control-row">
-                    <label for="rotationZSlider">Z Rotation:</label>
-                    <input type="range" id="rotationZSlider" min="-180" max="180" step="1" value="0" class="control-slider">
-                    <span id="rotationZValue">0°</span>
-                </div>
-                <button class="control-btn" id="resetRotationBtn">Reset Rotation</button>
             </div>
 
             <div class="controls-section">
@@ -262,7 +123,7 @@
         <!-- Content Area -->
         <div class="content-area">
             <div class="frame-container" id="frameContainer">
-                <!-- Three.js canvas will be added here -->
+                <!-- Canvas will be added here -->
             </div>
         </div>
     </div>
@@ -271,68 +132,66 @@
     <div class="modal-overlay" id="helpModal">
         <div class="modal-content help-modal">
             <div class="modal-header">
-                <h3>How to Use SV Generative Gallery</h3>
+                <h3>How to Use Text Ticker Tool</h3>
                 <button class="modal-close" id="closeHelpModal">&times;</button>
             </div>
             
             <div class="modal-body help-content">
                 <div class="help-section">
-                    <h4>🖼️ Getting Started</h4>
+                    <h4>✏️ Getting Started</h4>
                     <ol>
-                        <li><strong>Add Images:</strong> Click the "+" button or drag & drop images into the upload area</li>
-                        <li><strong>Choose a Mode:</strong> Select from Ring, Follow Spline, Cursor Trail, or Shuffle</li>
-                        <li><strong>Customize:</strong> Adjust settings like speed, size, and background color</li>
-                        <li><strong>Export:</strong> Click "Export MP4" to record and download your gallery animation</li>
+                        <li><strong>Enter Text:</strong> Type your text in the text input box</li>
+                        <li><strong>Choose Path:</strong> Select "Shape" mode for circular text paths</li>
+                        <li><strong>Customize:</strong> Adjust radius, rotation, and background color</li>
+                        <li><strong>Export:</strong> Click "Export" to save your typography design</li>
                     </ol>
                 </div>
                 
                 <div class="help-section">
-                    <h4>🎭 Gallery Modes</h4>
+                    <h4>🔤 Path Modes</h4>
                     <div class="mode-info">
-                        <p><strong>Ring:</strong> 3D circular gallery that rotates your images in space</p>
-                        <p><strong>Follow Spline:</strong> Draw a custom path - images will follow your line</p>
-                        <p><strong>Cursor Trail:</strong> Images follow your mouse cursor around the screen</p>
-                        <p><strong>Shuffle:</strong> Animated positioning with smooth transitions between images</p>
+                        <p><strong>Shape:</strong> Text follows circular paths with adjustable radius and rotation</p>
+                        <p><em>More path modes will be available in future updates</em></p>
                     </div>
                 </div>
                 
                 <div class="help-section">
-                    <h4>🎨 Customization</h4>
+                    <h4>🎨 Typography Controls</h4>
                     <ul>
-                        <li><strong>Animation Speed:</strong> Control how fast your gallery animates</li>
-                        <li><strong>Image Size:</strong> Adjust the scale of your images (20-200%)</li>
-                        <li><strong>Background Color:</strong> Pick any color for your gallery background</li>
+                        <li><strong>Radius:</strong> Adjust the size of the circular text path</li>
+                        <li><strong>Rotation:</strong> Rotate the entire text path around the center</li>
+                        <li><strong>Background Color:</strong> Pick any color for your design background</li>
                         <li><strong>Preview Zoom:</strong> Zoom in/out to get a better view while designing</li>
                     </ul>
                 </div>
                 
                 <div class="help-section">
-                    <h4>🎬 Video Export</h4>
+                    <h4>📄 Export Options</h4>
                     <ul>
-                        <li><strong>Duration:</strong> Set recording time (1-60 seconds)</li>
-                        <li><strong>Format:</strong> Choose Auto (MP4 preferred), Force MP4, or WebM</li>
+                        <li><strong>PNG Export:</strong> Save your typography design as a high-quality image</li>
+                        <li><strong>MP4 Export:</strong> Coming soon - animated typography videos</li>
                         <li><strong>Resolution:</strong> Always exports at original resolution, regardless of zoom</li>
-                        <li><strong>Compatibility:</strong> MP4 works best for sharing and editing</li>
+                        <li><strong>Background Images:</strong> Add background and foreground images for layered designs</li>
                     </ul>
                 </div>
                 
                 <div class="help-section">
-                    <h4>💡 Tips & Tricks</h4>
+                    <h4>💡 Typography Tips</h4>
                     <ul>
-                        <li>For <strong>Follow Spline</strong>: Click and drag to draw your path, images will animate along it</li>
-                        <li>Use <strong>Preview Zoom</strong> to fine-tune details without affecting export quality</li>
-                        <li>Try different <strong>speeds</strong> for each mode - some work better fast, others slow</li>
-                        <li>Export multiple versions with different settings to find your perfect look</li>
-                        <li><strong>Shuffle mode</strong> works great with many images for dynamic galleries</li>
+                        <li>Short phrases work best for circular text paths</li>
+                        <li>Use <strong>Preview Zoom</strong> to fine-tune text positioning</li>
+                        <li>Try different radius values to create various text circle sizes</li>
+                        <li>Rotate text to find the perfect starting position</li>
+                        <li>Experiment with background and foreground images for creative designs</li>
                     </ul>
                 </div>
                 
                 <div class="help-section">
                     <h4>⚠️ Troubleshooting</h4>
                     <ul>
-                        <li><strong>Video export fails:</strong> Try WebM format or reduce duration</li>
-                        <li><strong>Images not showing:</strong> Ensure files are valid image formats (JPG, PNG, GIF)</li>
-                        <li><strong>Performance issues:</strong> Try fewer images or smaller image sizes</li>
+                        <li><strong>Text not visible:</strong> Check text color against background color</li>
+                        <li><strong>Text too small:</strong> Increase canvas size or adjust radius</li>
+                        <li><strong>Export issues:</strong> Ensure your browser supports canvas export</li>
                         <li><strong>Browser compatibility:</strong> Works best in Chrome, Firefox, Safari, and Edge</li>
                     </ul>
                 </div>
@@ -360,19 +219,17 @@
                 </div>
                 
                 <div class="modal-section">
-                    <label for="exportFormat" class="modal-label">Format</label>
-                    <select id="exportFormat" class="modal-select">
-                        <option value="auto">Auto (MP4 preferred)</option>
-                        <option value="mp4">Force MP4</option>
-                        <option value="webm">WebM</option>
-                        <option value="png-sequence">PNG Sequence</option>
+                    <label for="exportFormatSelect" class="modal-label">Format</label>
+                    <select id="exportFormatSelect" class="modal-select">
+                        <option value="png">PNG Image</option>
+                        <option value="mp4">MP4 Video (Coming Soon)</option>
                     </select>
-                    <span class="modal-hint">Auto works best for video compatibility, PNG Sequence for image frames</span>
+                    <span class="modal-hint">PNG exports current typography design, MP4 will be available soon</span>
                 </div>
                 
                 <div class="modal-section">
-                    <label class="modal-label">Current Mode: <span id="currentModeDisplay">Ring</span></label>
-                    <span class="modal-hint">Switch modes above to change what gets recorded</span>
+                    <label class="modal-label">Current Mode: <span id="currentModeDisplay">Shape</span></label>
+                    <span class="modal-hint">Typography rendered on circular path</span>
                 </div>
             </div>
             
