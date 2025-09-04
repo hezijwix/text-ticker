@@ -20,6 +20,19 @@ node_modules/
 # Logs
 *.log
 logs/
+server.log
+
+# Test and development artifacts
+.playwright-mcp/
+debug-*.png
+test-*.png
+auto-zoom-*.png
+text-ticker-export*.png
+text-ticker-animation*.mp4
+text-ticker-sequence*.zip
+
+# Development documentation (optional - uncomment to exclude from commits)
+# dev-docs/
 
 # Runtime data
 pids

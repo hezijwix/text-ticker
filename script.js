@@ -140,12 +140,9 @@ class TextTickerTool {
     }
     
     init() {
-        console.log('🚀 Initializing Text Ticker Tool...');
-        console.log('📦 Frame container:', this.frameContainer);
         
         // Initialize text from textarea
         this.currentText = this.textInput.value || "Sample Text";
-        console.log('📝 Initial text:', this.currentText);
         
         // Initialize frame container with proper styling
         this.initFrameContainer();
@@ -163,7 +160,6 @@ class TextTickerTool {
             this.onWindowResize();
         });
         
-        console.log('✅ Text Ticker Tool initialized successfully');
     }
     
     initFrameContainer() {
@@ -177,20 +173,16 @@ class TextTickerTool {
         // Apply initial frame size
         this.applyFrameSize();
         
-        console.log('🖼️ Frame container initialized with proper CSS');
     }
     
     createP5Instance() {
         const self = this;
         
-        console.log('🎨 Creating P5.js instance...');
         
         // P5.js instance mode setup
         const sketch = (p) => {
             p.setup = () => {
-                console.log('📐 P5.js setup running...');
                 const frameSize = self.getFrameSize();
-                console.log('📏 Frame size:', frameSize);
                 
                 // Disable pixel density scaling to avoid coordinate system issues
                 p.pixelDensity(1);
@@ -203,36 +195,24 @@ class TextTickerTool {
                 canvas.canvas.style.position = 'static';
                 canvas.canvas.style.display = 'block';
                 
-                console.log('🖼️ Canvas created and positioned with flexbox centering');
-                console.log('📊 Canvas dimensions:', {
-                    canvasWidth: canvas.canvas.width,
-                    canvasHeight: canvas.canvas.height,
-                    p5Width: p.width,
-                    p5Height: p.height,
-                    pixelDensity: p.pixelDensity()
-                });
                 
                 // Set initial text properties
                 p.textAlign(p.CENTER, p.CENTER);
                 p.noLoop(); // Stop continuous draw loop
                 self.renderText();
                 
-                console.log('✅ P5.js setup completed');
             };
             
             p.draw = () => {
                 // This should not run continuously
-                console.log('⚠️ P5.js draw() called - this should not happen');
             };
         };
         
         if (this.p5Instance) {
-            console.log('🔄 Removing existing P5.js instance');
             this.p5Instance.remove();
         }
         
         this.p5Instance = new p5(sketch);
-        console.log('✅ P5.js instance created');
     }
     
     setupEventListeners() {
@@ -457,7 +437,6 @@ class TextTickerTool {
             this.renderText();
         }
         
-        console.log(`Frame size applied: ${clampedWidth}x${clampedHeight}`);
     }
     
     applyResponsiveConstraints(targetWidth, targetHeight) {
@@ -472,7 +451,6 @@ class TextTickerTool {
         // Calculate auto-zoom to fit large canvases in viewport
         this.calculateAutoZoom(targetWidth, targetHeight);
         
-        console.log(`Frame size applied: ${targetWidth}x${targetHeight}`);
     }
     
     calculateAutoZoom(canvasWidth, canvasHeight) {
@@ -518,7 +496,6 @@ class TextTickerTool {
             // Update the zoom to apply auto-zoom + manual zoom
             this.updateCombinedZoom();
             
-            console.log(`Auto-zoom calculated: ${this.autoZoom.toFixed(3)} (canvas: ${canvasWidth}x${canvasHeight}, available: ${availableWidth.toFixed(0)}x${availableHeight.toFixed(0)}, aspect: ${aspectRatio.toFixed(2)} vs ${availableAspectRatio.toFixed(2)})`);
         }
     }
     
@@ -527,7 +504,6 @@ class TextTickerTool {
         
         // Recalculate auto-zoom on window resize
         this.calculateAutoZoom(frameSize.width, frameSize.height);
-        console.log(`Window resized. Frame size: ${frameSize.width}x${frameSize.height}`);
     }
     
     updateCurrentTextDisplay() {
@@ -558,7 +534,6 @@ class TextTickerTool {
         this.frameContainer.style.transform = `scale(${this.currentZoom})`;
         this.frameContainer.style.transformOrigin = 'center center';
         
-        console.log(`Zoom updated: auto=${this.autoZoom.toFixed(3)}, manual=${this.manualZoom.toFixed(3)}, combined=${this.currentZoom.toFixed(3)}`);
     }
     
     resetZoom() {
@@ -571,41 +546,31 @@ class TextTickerTool {
     }
     
     renderText() {
-        console.log('🎨 renderText called');
         
         if (!this.p5Instance) {
-            console.log('❌ No P5.js instance available');
             return;
         }
         
         const p = this.p5Instance;
-        console.log('📝 Rendering text:', this.currentText);
         
         // Set background
         if (this.isAlphaBackground) {
             p.clear(); // Transparent background
-            console.log('🔳 Using transparent background');
         } else {
             p.background(this.backgroundColorPicker.value);
-            console.log('🎨 Background color:', this.backgroundColorPicker.value);
         }
         
         // Draw background image if loaded
         if (this.backgroundImageElement) {
             p.image(this.backgroundImageElement, 0, 0, p.width, p.height);
-            console.log('🖼️ Drew background image');
         }
         
         // Draw text ribbons based on mode
-        console.log('🎨 Ribbon mode check:', this.ribbonMode);
         if (this.ribbonMode === "shapePath") {
-            console.log('✅ Drawing shape path ribbon');
             this.drawShapePathRibbon(p);
         } else if (this.ribbonMode === "character") {
-            console.log('✅ Drawing character ribbon');
             this.drawCharacterRibbon(p);
         } else {
-            console.log('ℹ️ No ribbon mode active');
         }
         
         // Draw text based on current shape
@@ -614,10 +579,8 @@ class TextTickerTool {
         // Draw foreground image if loaded
         if (this.foregroundImageElement) {
             p.image(this.foregroundImageElement, 0, 0, p.width, p.height);
-            console.log('🖼️ Drew foreground image');
         }
         
-        console.log('✅ Text rendering completed');
     }
     
     drawTextOnCircle(p) {
@@ -625,14 +588,6 @@ class TextTickerTool {
         const radius = this.shapeParameters.circle.radius;
         const rotation = this.currentRotation * (Math.PI / 180);
         
-        console.log('🔤 Drawing text on circle:', {
-            text: text,
-            radius: radius,
-            rotation: this.currentRotation,
-            fontFamily: this.currentFontFamily,
-            fontWeight: this.currentFontWeight,
-            canvasSize: `${p.width}x${p.height}`
-        });
         
         // Use Canvas 2D API for variable font support with P5.js coordinate system
         const canvas = p.canvas;
@@ -645,15 +600,6 @@ class TextTickerTool {
         const centerX = p.width / 2;
         const centerY = p.height / 2;
         
-        console.log('📍 Center coordinates:', { 
-            centerX, 
-            centerY, 
-            canvasWidth: canvas.width, 
-            canvasHeight: canvas.height,
-            p5Width: p.width,
-            p5Height: p.height,
-            pixelDensity: p.pixelDensity()
-        });
         
         // Move to exact center of canvas
         ctx.translate(centerX, centerY);
@@ -668,7 +614,6 @@ class TextTickerTool {
         ctx.textBaseline = 'middle';
         
         const angleStep = (2 * Math.PI) / text.length;
-        console.log('📐 Angle step per character:', (angleStep * 180 / Math.PI));
         
         for (let i = 0; i < text.length; i++) {
             const angle = angleStep * i;
@@ -684,7 +629,6 @@ class TextTickerTool {
         
         // Restore canvas state
         ctx.restore();
-        console.log('✅ Text drawing completed and centered');
     }
     
     updateShapeControls() {
@@ -706,7 +650,6 @@ class TextTickerTool {
                 break;
         }
         
-        console.log('🔄 Shape controls updated for:', this.currentShape);
     }
     
     drawTextOnPath(p) {
@@ -730,17 +673,6 @@ class TextTickerTool {
         const cornerRadius = this.shapeParameters.rectangle.cornerRadius;
         const rotation = this.currentRotation * (Math.PI / 180);
         
-        console.log('🔤 Drawing text on rectangle:', {
-            text: text,
-            width: width,
-            height: height,
-            cornerRadius: cornerRadius,
-            rotation: this.currentRotation,
-            fontFamily: this.currentFontFamily,
-            fontSize: this.currentFontSize,
-            fontWeight: this.currentFontWeight,
-            canvasSize: `${p.width}x${p.height}`
-        });
         
         // Use Canvas 2D API for variable font support
         const canvas = p.canvas;
@@ -780,7 +712,6 @@ class TextTickerTool {
         
         // Restore canvas state
         ctx.restore();
-        console.log('✅ Rectangle text drawing completed');
     }
     
     getRectanglePathPoint(distance, width, height) {
@@ -828,16 +759,6 @@ class TextTickerTool {
         const cornerRadius = this.shapeParameters.triangle.cornerRadius;
         const rotation = this.currentRotation * (Math.PI / 180);
         
-        console.log('🔤 Drawing text on triangle:', {
-            text: text,
-            size: size,
-            cornerRadius: cornerRadius,
-            rotation: this.currentRotation,
-            fontFamily: this.currentFontFamily,
-            fontSize: this.currentFontSize,
-            fontWeight: this.currentFontWeight,
-            canvasSize: `${p.width}x${p.height}`
-        });
         
         // Use Canvas 2D API for variable font support
         const canvas = p.canvas;
@@ -878,7 +799,6 @@ class TextTickerTool {
         
         // Restore canvas state
         ctx.restore();
-        console.log('✅ Triangle text drawing completed');
     }
     
     getTrianglePathPoint(distance, size) {
@@ -933,12 +853,6 @@ class TextTickerTool {
         // Calculate ribbon stroke width proportional to font size
         const strokeWidth = this.currentFontSize * this.ribbonWidth;
         
-        console.log('🎨 Drawing shape path ribbon:', {
-            shape: this.currentShape,
-            strokeWidth: strokeWidth,
-            ribbonColor: this.ribbonColor,
-            rotation: rotation
-        });
         
         const ctx = p.canvas.getContext('2d');
         ctx.save();
@@ -968,7 +882,6 @@ class TextTickerTool {
         }
         
         ctx.restore();
-        console.log('✅ Shape path ribbon completed');
     }
     
     drawCirclePathRibbon(ctx) {
@@ -1026,7 +939,6 @@ class TextTickerTool {
                 ctx.closePath();
             } catch (error) {
                 // Fallback to regular triangle if arcTo fails
-                console.warn('Rounded triangle corners not supported, using regular triangle');
                 ctx.beginPath();
                 ctx.moveTo(vertices[0].x, vertices[0].y);
                 ctx.lineTo(vertices[1].x, vertices[1].y);
@@ -1049,7 +961,6 @@ class TextTickerTool {
         
         // Skip if no text
         if (!text || text.length === 0) {
-            console.log('⚠️ No text to draw character ribbons for');
             return;
         }
         
@@ -1058,13 +969,6 @@ class TextTickerTool {
         // Calculate ribbon border width proportional to font size
         const borderWidth = this.currentFontSize * this.ribbonWidth;
         
-        console.log('🎀 Drawing character ribbon borders:', {
-            text: text,
-            shape: this.currentShape,
-            borderWidth: borderWidth,
-            ribbonColor: this.ribbonColor,
-            canvasSize: `${p.width}x${p.height}`
-        });
         
         // Use Canvas 2D API for precise border rendering
         const canvas = p.canvas;
@@ -1099,7 +1003,6 @@ class TextTickerTool {
         
         // Restore canvas state
         ctx.restore();
-        console.log('✅ Character ribbon borders completed');
     }
     
     drawRibbonForCurrentShape(ctx, text, borderWidth) {
@@ -1287,7 +1190,6 @@ class TextTickerTool {
         // Export at original resolution, not zoomed
         this.p5Instance.save('text-ticker-export.png');
         
-        console.log('✅ PNG exported successfully');
     }
     
     async exportPNGSequence(durationSeconds) {
@@ -1303,7 +1205,6 @@ class TextTickerTool {
             const zip = new JSZip();
             const originalRotation = this.currentRotation;
             
-            console.log(`Starting PNG sequence export: ${totalFrames} frames at ${fps}fps`);
             
             for (let frame = 0; frame < totalFrames; frame++) {
                 // Update animation (rotate text)
@@ -1357,7 +1258,6 @@ class TextTickerTool {
             this.exportBtn.disabled = false;
             this.exportBtn.textContent = 'Export';
             
-            console.log('✅ PNG sequence exported successfully');
             
         } catch (error) {
             console.error('PNG sequence export failed:', error);
@@ -1432,7 +1332,6 @@ class TextTickerTool {
             return;
         }
         
-        console.log('Recording with format:', selectedFormat);
         
         const mediaRecorder = new MediaRecorder(stream, {
             mimeType: selectedFormat,
@@ -1454,10 +1353,8 @@ class TextTickerTool {
             });
             
             if (isMP4) {
-                console.log('MP4 recorded natively, downloading directly');
                 this.downloadMP4(blob);
             } else {
-                console.log('WebM recorded, converting to MP4 for better compatibility');
                 this.convertToMP4(blob);
             }
         };
@@ -1483,7 +1380,6 @@ class TextTickerTool {
             recordingCanvas.width = frameSize.width;
             recordingCanvas.height = frameSize.height;
             
-            console.log('Created recording canvas at original resolution:', recordingCanvas.width + 'x' + recordingCanvas.height);
             
             const originalRotation = this.currentRotation;
             let startTime = null;
@@ -1582,7 +1478,6 @@ class TextTickerTool {
     async initFFmpeg() {
         try {
             if (typeof window.FFmpeg === 'undefined') {
-                console.warn('FFmpeg not found in global scope');
                 this.ffmpegLoaded = false;
                 return;
             }
@@ -1594,18 +1489,14 @@ class TextTickerTool {
             });
             
             this.ffmpegLoaded = true;
-            console.log('✅ FFmpeg loaded successfully');
         } catch (error) {
-            console.warn('⚠️ FFmpeg loading failed:', error.message);
             this.ffmpegLoaded = false;
         }
     }
     
     async convertToMP4(webmBlob) {
-        console.log('convertToMP4 called, ffmpegLoaded:', this.ffmpegLoaded);
         
         if (!this.ffmpegLoaded) {
-            console.log('FFmpeg not loaded, falling back to WebM download');
             this.exportBtn.textContent = 'Downloading WebM...';
             this.downloadWebM(webmBlob);
             return;
@@ -1613,16 +1504,13 @@ class TextTickerTool {
         
         try {
             this.exportBtn.textContent = 'Converting to MP4... (0%)';
-            console.log('Starting WebM to MP4 conversion...');
             
             const arrayBuffer = await webmBlob.arrayBuffer();
             const uint8Array = new Uint8Array(arrayBuffer);
-            console.log('WebM blob size:', (uint8Array.length / 1024 / 1024).toFixed(2) + 'MB');
             
             this.exportBtn.textContent = 'Converting to MP4... (25%)';
             
             await this.ffmpeg.writeFile('input.webm', uint8Array);
-            console.log('Input file written to FFmpeg filesystem');
             
             this.exportBtn.textContent = 'Converting to MP4... (50%)';
             
@@ -1634,13 +1522,11 @@ class TextTickerTool {
                 '-c:a', 'aac',
                 'output.mp4'
             ]);
-            console.log('FFmpeg conversion completed');
             
             this.exportBtn.textContent = 'Converting to MP4... (75%)';
             
             const data = await this.ffmpeg.readFile('output.mp4');
             const mp4Blob = new Blob([data.buffer], { type: 'video/mp4' });
-            console.log('MP4 blob created, size:', (mp4Blob.size / 1024 / 1024).toFixed(2) + 'MB');
             
             this.exportBtn.textContent = 'Downloading MP4...';
             this.downloadMP4(mp4Blob);
@@ -1649,9 +1535,7 @@ class TextTickerTool {
             try {
                 await this.ffmpeg.deleteFile('input.webm');
                 await this.ffmpeg.deleteFile('output.mp4');
-                console.log('Temporary files cleaned up');
             } catch (cleanupError) {
-                console.warn('Cleanup warning:', cleanupError.message);
             }
             
         } catch (error) {
@@ -1675,7 +1559,6 @@ class TextTickerTool {
         this.exportBtn.disabled = false;
         this.exportBtn.textContent = 'Export';
         
-        console.log('✅ MP4 file downloaded successfully');
     }
     
     downloadWebM(webmBlob) {
@@ -1691,7 +1574,6 @@ class TextTickerTool {
         this.exportBtn.disabled = false;
         this.exportBtn.textContent = 'Export';
         
-        console.log('✅ WebM file downloaded successfully');
     }
 }
 
