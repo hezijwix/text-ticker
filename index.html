@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Text Ticker Tool</title>
+    <!-- Google Fonts - Wix Madefor Display Variable Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Wix+Madefor+Display:wght@400..800&family=Inter:wght@400..700&family=Roboto:wght@400..700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <!-- P5.js for advanced typography rendering -->
     <script src="https://cdn.jsdelivr.net/npm/p5@1.11.8/lib/p5.min.js"></script>
@@ -35,6 +39,24 @@
                 <h4>Text Content</h4>
                 <div class="text-input-container">
                     <textarea id="textInput" placeholder="Enter your text here..." rows="3" class="text-input-box"></textarea>
+                </div>
+                
+                <div class="font-controls">
+                    <div class="font-family-row">
+                        <label for="fontFamilySelect">Font Family:</label>
+                        <select id="fontFamilySelect" class="font-family-select">
+                            <option value="Wix Madefor Display">Wix Madefor Display</option>
+                            <option value="Inter">Inter</option>
+                            <option value="Roboto">Roboto</option>
+                            <option value="Arial">Arial</option>
+                        </select>
+                    </div>
+                    
+                    <div class="font-weight-row">
+                        <label for="fontWeightSlider">Font Weight:</label>
+                        <input type="range" id="fontWeightSlider" min="400" max="800" step="25" value="500" class="control-slider">
+                        <span id="fontWeightValue">500</span>
+                    </div>
                 </div>
             </div>
 
@@ -160,6 +182,8 @@
                 <div class="help-section">
                     <h4>🎨 Typography Controls</h4>
                     <ul>
+                        <li><strong>Font Family:</strong> Choose from Wix Madefor Display, Inter, Roboto, or Arial</li>
+                        <li><strong>Font Weight:</strong> Adjust variable font weight from 400 (Regular) to 800 (ExtraBold)</li>
                         <li><strong>Radius:</strong> Adjust the size of the circular text path</li>
                         <li><strong>Rotation:</strong> Rotate the entire text path around the center</li>
                         <li><strong>Background Color:</strong> Pick any color for your design background</li>
@@ -181,7 +205,9 @@
                     <h4>💡 Typography Tips</h4>
                     <ul>
                         <li>Short phrases work best for circular text paths</li>
-                        <li>Use <strong>Preview Zoom</strong> to fine-tune text positioning</li>
+                        <li><strong>Wix Madefor Display</strong> supports smooth variable weights (400-800)</li>
+                        <li>Lighter weights (400-500) work well for large text, heavier weights (600-800) for emphasis</li>
+                        <li>Use <strong>Preview Zoom</strong> to fine-tune text positioning and weight</li>
                         <li>Try different radius values to create various text circle sizes</li>
                         <li>Rotate text to find the perfect starting position</li>
                         <li>Experiment with background and foreground images for creative designs</li>
@@ -221,17 +247,20 @@
                 </div>
                 
                 <div class="modal-section">
-                    <label for="exportFormatSelect" class="modal-label">Format</label>
-                    <select id="exportFormatSelect" class="modal-select">
-                        <option value="png">PNG Image</option>
-                        <option value="mp4">MP4 Video (Coming Soon)</option>
+                    <label for="exportFormat" class="modal-label">Format</label>
+                    <select id="exportFormat" class="modal-select">
+                        <option value="auto">Auto (MP4 preferred)</option>
+                        <option value="mp4">Force MP4</option>
+                        <option value="webm">WebM</option>
+                        <option value="png-sequence">PNG Sequence</option>
+                        <option value="png">Single PNG</option>
                     </select>
-                    <span class="modal-hint">PNG exports current typography design, MP4 will be available soon</span>
+                    <span class="modal-hint">Auto works best for video compatibility, PNG Sequence for image frames</span>
                 </div>
                 
                 <div class="modal-section">
-                    <label class="modal-label">Current Mode: <span id="currentModeDisplay">Shape</span></label>
-                    <span class="modal-hint">Typography rendered on circular path</span>
+                    <label class="modal-label">Current Text: <span id="currentTextDisplay">Sample Text</span></label>
+                    <span class="modal-hint">Change text above to modify what gets exported</span>
                 </div>
             </div>
             
