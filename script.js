@@ -22,7 +22,10 @@ class TextTickerTool {
         this.xHeightSlider = document.getElementById('xHeightSlider');
         this.xHeightValue = document.getElementById('xHeightValue');
         
-        // Shape control
+        // Path mode controls
+        this.pathModeSelect = document.getElementById('pathModeSelect');
+        
+        // Shape controls
         this.shapeTypeSelect = document.getElementById('shapeTypeSelect');
         
         // Shape controls - Circle
@@ -47,9 +50,18 @@ class TextTickerTool {
         this.animationSpeedValue = document.getElementById('animationSpeedValue');
         this.animationDirectionSelect = document.getElementById('animationDirectionSelect');
         
-        // Shape property groups for dynamic visibility
+        // Property groups for dynamic visibility
+        this.shapePropertiesSection = document.getElementById('shapePropertiesSection');
+        this.splinePropertiesSection = document.getElementById('splinePropertiesSection');
         this.circleProperties = document.getElementById('circleProperties');
         this.rectangleProperties = document.getElementById('rectangleProperties');
+        
+        // Spline controls
+        this.curveTypeSelect = document.getElementById('curveTypeSelect');
+        this.showGuidesCheckbox = document.getElementById('showGuidesCheckbox');
+        this.clearSplineBtn = document.getElementById('clearSplineBtn');
+        this.splinePointCount = document.getElementById('splinePointCount');
+        
         
         // Text Ribbon controls
         this.ribbonModeSelect = document.getElementById('ribbonModeSelect');
@@ -83,6 +95,7 @@ class TextTickerTool {
         // Export button
         this.exportBtn = document.getElementById('exportBtn');
         
+        
         // Export modal elements
         this.exportModal = document.getElementById('exportModal');
         this.closeExportModal = document.getElementById('closeExportModal');
@@ -108,7 +121,8 @@ class TextTickerTool {
         this.currentRotation = 0;
         this.xHeightDebugOffset = 2; // X-Height offset for proper alignment
         
-        // Shape system
+        // Path system
+        this.currentPathMode = "shape"; // "shape" or "spline"
         this.currentShape = "circle";
         this.shapeParameters = {
             circle: {
@@ -120,6 +134,12 @@ class TextTickerTool {
                 cornerRadius: 0
             }
         };
+        
+        // Spline system
+        this.splinePoints = []; // Array of {x, y} points
+        this.curveType = "linear"; // "linear" or "curved" 
+        this.showGuides = true;
+        this.splinePathLength = 0;
         
         // Text Ribbon properties
         this.ribbonMode = "character";  // "off", "character", "shapePath", "wordsBound"
@@ -162,7 +182,9 @@ class TextTickerTool {
         
         this.createP5Instance();
         this.setupEventListeners();
+        this.updatePathModeControls(); // Initialize path mode controls visibility
         this.updateShapeControls(); // Initialize shape controls visibility
+        this.updateSplinePointCount(); // Initialize spline point count
         this.initFFmpeg(); // Initialize FFmpeg for video conversion
         
         // Handle window resize
@@ -242,6 +264,13 @@ class TextTickerTool {
                 // Render the current frame
                 self.renderText();
             };
+            
+            // Mouse event handlers for spline editing
+            p.mousePressed = () => {
+                if (self.currentPathMode === "spline") {
+                    self.handleSplineMousePressed(p.mouseX, p.mouseY);
+                }
+            };
         };
         
         if (this.p5Instance) {
@@ -312,6 +341,13 @@ class TextTickerTool {
             this.renderText();
         });
         
+        // Path mode selection
+        this.pathModeSelect.addEventListener('change', () => {
+            this.currentPathMode = this.pathModeSelect.value;
+            this.updatePathModeControls();
+            this.renderText();
+        });
+        
         // Shape type selection
         this.shapeTypeSelect.addEventListener('change', () => {
             this.currentShape = this.shapeTypeSelect.value;
@@ -350,6 +386,26 @@ class TextTickerTool {
         this.rotationSlider.addEventListener('input', () => {
             this.currentRotation = parseFloat(this.rotationSlider.value);
             this.rotationValue.textContent = this.currentRotation + '°';
+            this.renderText();
+        });
+        
+        // Spline controls
+        this.curveTypeSelect.addEventListener('change', () => {
+            this.curveType = this.curveTypeSelect.value;
+            this.renderText();
+        });
+        
+        this.showGuidesCheckbox.addEventListener('change', () => {
+            this.showGuides = this.showGuidesCheckbox.checked;
+            // Update toggle text
+            const toggleText = this.showGuidesCheckbox.parentElement.querySelector('.toggle-text');
+            toggleText.textContent = this.showGuides ? 'ON' : 'OFF';
+            this.renderText();
+        });
+        
+        this.clearSplineBtn.addEventListener('click', () => {
+            this.splinePoints = [];
+            this.updateSplinePointCount();
             this.renderText();
         });
         
@@ -422,6 +478,7 @@ class TextTickerTool {
         // Help modal
         this.helpIcon.addEventListener('click', () => this.showHelpModal());
         this.closeHelpModal.addEventListener('click', () => this.hideHelpModal());
+        
         
         // Click outside modals to close
         window.addEventListener('click', (e) => {
@@ -586,10 +643,10 @@ class TextTickerTool {
         this.updateCombinedZoom();
     }
     
+    
     // Animation now handled by P5.js draw loop
     
-    renderText() {
-        
+    renderText(hideGuides = false) {
         if (!this.p5Instance) {
             return;
         }
@@ -615,17 +672,15 @@ class TextTickerTool {
             this.drawCharacterRibbon(p);
         } else if (this.ribbonMode === "wordsBound") {
             this.drawWordsBoundRibbon(p);
-        } else {
         }
         
-        // Draw text based on current shape
-        this.drawTextOnPath(p);
+        // Draw text based on current shape - pass hideGuides to drawTextOnPath
+        this.drawTextOnPath(p, hideGuides);
         
         // Draw foreground image if loaded
         if (this.foregroundImageElement) {
             p.image(this.foregroundImageElement, 0, 0, p.width, p.height);
         }
-        
     }
     
     drawTextOnCircle(p) {
@@ -684,6 +739,17 @@ class TextTickerTool {
         ctx.restore();
     }
     
+    updatePathModeControls() {
+        // Show/hide the appropriate properties section
+        if (this.currentPathMode === "shape") {
+            this.shapePropertiesSection.style.display = 'block';
+            this.splinePropertiesSection.style.display = 'none';
+        } else if (this.currentPathMode === "spline") {
+            this.shapePropertiesSection.style.display = 'none';
+            this.splinePropertiesSection.style.display = 'block';
+        }
+    }
+    
     updateShapeControls() {
         // Hide all shape property groups
         this.circleProperties.style.display = 'none';
@@ -698,18 +764,323 @@ class TextTickerTool {
                 this.rectangleProperties.style.display = 'block';
                 break;
         }
-        
     }
     
-    drawTextOnPath(p) {
-        switch (this.currentShape) {
-            case 'circle':
-                this.drawTextOnCircle(p);
-                break;
-            case 'rectangle':
-                this.drawTextOnRectangle(p);
-                break;
+    updateSplinePointCount() {
+        this.splinePointCount.textContent = this.splinePoints.length;
+    }
+    
+    handleSplineMousePressed(mouseX, mouseY) {
+        // Check if click is within canvas bounds
+        const canvas = this.p5Instance.canvas;
+        if (mouseX < 0 || mouseX > canvas.width || mouseY < 0 || mouseY > canvas.height) {
+            return; // Ignore clicks outside canvas area
         }
+        
+        const clickRadius = 10; // Distance threshold for detecting clicks on existing points
+        
+        // Check if clicking on an existing point (to delete it)
+        for (let i = 0; i < this.splinePoints.length; i++) {
+            const point = this.splinePoints[i];
+            const distance = Math.sqrt((mouseX - point.x) ** 2 + (mouseY - point.y) ** 2);
+            
+            if (distance <= clickRadius) {
+                // Remove this point
+                this.splinePoints.splice(i, 1);
+                this.updateSplinePointCount();
+                this.renderText();
+                return; // Don't add a new point
+            }
+        }
+        
+        // Add a new point
+        const newPoint = { x: mouseX, y: mouseY };
+        this.splinePoints.push(newPoint);
+        this.updateSplinePointCount();
+        this.renderText();
+    }
+    
+    drawTextOnPath(p, hideGuides = false) {
+        if (this.currentPathMode === "shape") {
+            switch (this.currentShape) {
+                case 'circle':
+                    this.drawTextOnCircle(p);
+                    break;
+                case 'rectangle':
+                    this.drawTextOnRectangle(p);
+                    break;
+            }
+        } else if (this.currentPathMode === "spline") {
+            this.drawTextOnSpline(p);
+            
+            // Only show guides if showGuides is true AND hideGuides is false (not during export)
+            if (this.showGuides && !hideGuides) {
+                this.drawSplineGuides(p);
+            }
+        }
+    }
+    
+    drawTextOnSpline(p) {
+        if (this.splinePoints.length < 2) {
+            return; // Need at least 2 points to create a path
+        }
+        
+        const text = this.currentText;
+        const rotation = this.currentRotation * (Math.PI / 180);
+        
+        // Use Canvas 2D API for variable font support
+        const canvas = p.canvas;
+        const ctx = canvas.getContext('2d');
+        
+        // Save current canvas state
+        ctx.save();
+        
+        // Apply rotation around center
+        const centerX = p.width / 2;
+        const centerY = p.height / 2;
+        ctx.translate(centerX, centerY);
+        ctx.rotate(rotation);
+        ctx.translate(-centerX, -centerY);
+        
+        // Set font properties
+        ctx.fillStyle = this.currentTextColor;
+        ctx.font = `${this.currentFontWeight} ${this.currentFontSize}px "${this.currentFontFamily}", sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
+        
+        // Calculate font metrics
+        const metrics = ctx.measureText('Mg');
+        const fontHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+        const baseXHeightOffset = -fontHeight / 2 + metrics.actualBoundingBoxAscent;
+        const xHeightOffset = baseXHeightOffset + this.xHeightDebugOffset;
+        
+        // Calculate path length
+        const pathLength = this.calculateSplinePathLength();
+        if (pathLength === 0) return;
+        
+        // Distribute characters along path
+        const charSpacing = pathLength / text.length;
+        // Fixed animation speed - 1 pixel per degree regardless of path length
+        const animationOffsetDistance = this.animationOffset;
+        
+        for (let i = 0; i < text.length; i++) {
+            const distanceAlongPath = (i * charSpacing + animationOffsetDistance) % pathLength;
+            const pathPoint = this.getPointOnSplinePath(distanceAlongPath);
+            
+            if (pathPoint) {
+                ctx.save();
+                ctx.translate(pathPoint.x, pathPoint.y);
+                ctx.rotate(pathPoint.angle);
+                ctx.fillText(text[i], 0, xHeightOffset);
+                ctx.restore();
+            }
+        }
+        
+        // Restore canvas state
+        ctx.restore();
+    }
+    
+    drawSplineGuides(p) {
+        if (this.splinePoints.length === 0) return;
+        
+        p.push();
+        
+        // Apply rotation around center for consistency
+        p.translate(p.width / 2, p.height / 2);
+        p.rotate(this.currentRotation * (Math.PI / 180));
+        p.translate(-p.width / 2, -p.height / 2);
+        
+        // Draw path connecting points
+        if (this.splinePoints.length > 1) {
+            p.push(); // Isolate path rendering state
+            p.stroke(100, 150, 255); // Blue guide color
+            p.strokeWeight(2);
+            p.noFill();
+            
+            if (this.curveType === "linear") {
+                // Draw straight lines between points
+                p.beginShape();
+                p.noFill(); // Ensure no fill for path
+                for (const point of this.splinePoints) {
+                    p.vertex(point.x, point.y);
+                }
+                p.endShape();
+            } else {
+                // Draw curved path using P5.js curve function
+                this.drawCurvedSplinePath(p);
+            }
+            p.pop(); // Restore rendering state after path
+        }
+        
+        // Draw control points
+        p.fill(255, 100, 100); // Red points
+        p.noStroke();
+        for (let i = 0; i < this.splinePoints.length; i++) {
+            const point = this.splinePoints[i];
+            p.circle(point.x, point.y, 8);
+            
+            // Draw point numbers
+            p.fill(255);
+            p.textAlign(p.CENTER, p.CENTER);
+            p.textSize(10);
+            p.text(i + 1, point.x, point.y);
+            p.fill(255, 100, 100); // Restore point color
+        }
+        
+        p.pop();
+    }
+    
+    calculateSplinePathLength() {
+        if (this.splinePoints.length < 2) return 0;
+        
+        let totalLength = 0;
+        
+        if (this.curveType === "linear") {
+            // Calculate linear path length
+            for (let i = 1; i < this.splinePoints.length; i++) {
+                const prev = this.splinePoints[i - 1];
+                const curr = this.splinePoints[i];
+                totalLength += Math.sqrt((curr.x - prev.x) ** 2 + (curr.y - prev.y) ** 2);
+            }
+        } else {
+            // Estimate curved path length by sampling
+            const samples = 100;
+            let prevPoint = this.getCurvedPointAt(0);
+            
+            for (let i = 1; i <= samples; i++) {
+                const t = i / samples;
+                const currPoint = this.getCurvedPointAt(t);
+                if (prevPoint && currPoint) {
+                    totalLength += Math.sqrt((currPoint.x - prevPoint.x) ** 2 + (currPoint.y - prevPoint.y) ** 2);
+                    prevPoint = currPoint;
+                }
+            }
+        }
+        
+        return totalLength;
+    }
+    
+    getPointOnSplinePath(distance) {
+        if (this.splinePoints.length < 2) return null;
+        
+        if (this.curveType === "linear") {
+            return this.getLinearPointAtDistance(distance);
+        } else {
+            return this.getCurvedPointAtDistance(distance);
+        }
+    }
+    
+    getLinearPointAtDistance(targetDistance) {
+        let currentDistance = 0;
+        
+        for (let i = 1; i < this.splinePoints.length; i++) {
+            const prev = this.splinePoints[i - 1];
+            const curr = this.splinePoints[i];
+            const segmentLength = Math.sqrt((curr.x - prev.x) ** 2 + (curr.y - prev.y) ** 2);
+            
+            if (currentDistance + segmentLength >= targetDistance) {
+                // Found the segment containing the target distance
+                const segmentProgress = (targetDistance - currentDistance) / segmentLength;
+                const x = prev.x + (curr.x - prev.x) * segmentProgress;
+                const y = prev.y + (curr.y - prev.y) * segmentProgress;
+                
+                // Calculate angle for character rotation (tangent to path)
+                const angle = Math.atan2(curr.y - prev.y, curr.x - prev.x);
+                
+                return { x, y, angle };
+            }
+            
+            currentDistance += segmentLength;
+        }
+        
+        // If we've gone past the end, return the last point
+        const lastPoint = this.splinePoints[this.splinePoints.length - 1];
+        const secondLastPoint = this.splinePoints[this.splinePoints.length - 2];
+        const angle = Math.atan2(lastPoint.y - secondLastPoint.y, lastPoint.x - secondLastPoint.x);
+        return { x: lastPoint.x, y: lastPoint.y, angle };
+    }
+    
+    getCurvedPointAtDistance(targetDistance) {
+        // For curved splines, we need to sample the curve and find the point at the target distance
+        const pathLength = this.calculateSplinePathLength();
+        const t = targetDistance / pathLength;
+        
+        return this.getCurvedPointAt(t);
+    }
+    
+    getCurvedPointAt(t) {
+        // Clamp t to [0, 1]
+        t = Math.max(0, Math.min(1, t));
+        
+        if (this.splinePoints.length < 2) return null;
+        
+        // Use P5.js curve functions for smooth interpolation
+        // For simplicity, we'll use Catmull-Rom splines
+        const numSegments = this.splinePoints.length - 1;
+        const segmentT = t * numSegments;
+        const segmentIndex = Math.floor(segmentT);
+        const localT = segmentT - segmentIndex;
+        
+        // Get control points for this segment
+        const p0 = this.splinePoints[Math.max(0, segmentIndex - 1)];
+        const p1 = this.splinePoints[segmentIndex];
+        const p2 = this.splinePoints[Math.min(this.splinePoints.length - 1, segmentIndex + 1)];
+        const p3 = this.splinePoints[Math.min(this.splinePoints.length - 1, segmentIndex + 2)];
+        
+        if (!p1 || !p2) return null;
+        
+        // Catmull-Rom interpolation
+        const x = this.catmullRomInterpolate(p0?.x || p1.x, p1.x, p2.x, p3?.x || p2.x, localT);
+        const y = this.catmullRomInterpolate(p0?.y || p1.y, p1.y, p2.y, p3?.y || p2.y, localT);
+        
+        // Calculate tangent for angle
+        const tangentX = this.catmullRomTangent(p0?.x || p1.x, p1.x, p2.x, p3?.x || p2.x, localT);
+        const tangentY = this.catmullRomTangent(p0?.y || p1.y, p1.y, p2.y, p3?.y || p2.y, localT);
+        const angle = Math.atan2(tangentY, tangentX);
+        
+        return { x, y, angle };
+    }
+    
+    catmullRomInterpolate(p0, p1, p2, p3, t) {
+        const t2 = t * t;
+        const t3 = t2 * t;
+        
+        return 0.5 * (
+            2 * p1 +
+            (-p0 + p2) * t +
+            (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 +
+            (-p0 + 3 * p1 - 3 * p2 + p3) * t3
+        );
+    }
+    
+    catmullRomTangent(p0, p1, p2, p3, t) {
+        const t2 = t * t;
+        
+        return 0.5 * (
+            (-p0 + p2) +
+            (2 * p0 - 5 * p1 + 4 * p2 - p3) * 2 * t +
+            (-p0 + 3 * p1 - 3 * p2 + p3) * 3 * t2
+        );
+    }
+    
+    drawCurvedSplinePath(p) {
+        if (this.splinePoints.length < 2) return;
+        
+        // Ensure proper stroke properties are inherited from caller
+        p.beginShape();
+        p.noFill(); // Explicitly ensure no fill for the curved path
+        
+        // Sample the curve with many points for smooth visualization
+        const samples = 100;
+        for (let i = 0; i <= samples; i++) {
+            const t = i / samples;
+            const point = this.getCurvedPointAt(t);
+            if (point) {
+                p.vertex(point.x, point.y);
+            }
+        }
+        
+        p.endShape();
     }
     
     drawTextOnRectangle(p) {
@@ -951,14 +1322,19 @@ class TextTickerTool {
         ctx.lineJoin = 'round';
         ctx.fillStyle = 'transparent';
         
-        // Draw shape outline based on current shape
-        switch (this.currentShape) {
-            case 'circle':
-                this.drawCirclePathRibbon(ctx);
-                break;
-            case 'rectangle':
-                this.drawRectanglePathRibbon(ctx);
-                break;
+        // Draw path outline based on current path mode
+        if (this.currentPathMode === 'spline') {
+            this.drawSplinePathRibbon(ctx);
+        } else {
+            // Shape mode - draw based on current shape
+            switch (this.currentShape) {
+                case 'circle':
+                    this.drawCirclePathRibbon(ctx);
+                    break;
+                case 'rectangle':
+                    this.drawRectanglePathRibbon(ctx);
+                    break;
+            }
         }
         
         ctx.restore();
@@ -987,6 +1363,49 @@ class TextTickerTool {
         }
         
         ctx.stroke();
+    }
+    
+    drawSplinePathRibbon(ctx) {
+        if (this.splinePoints.length < 2) return; // Need at least 2 points
+        
+        // The parent function already applied rotation around center, but we need to 
+        // translate back to canvas coordinates for spline points which are in absolute coordinates
+        const canvas = ctx.canvas;
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        ctx.translate(-centerX, -centerY);
+        
+        ctx.beginPath();
+        
+        if (this.curveType === "linear") {
+            // Draw straight lines between points
+            ctx.moveTo(this.splinePoints[0].x, this.splinePoints[0].y);
+            for (let i = 1; i < this.splinePoints.length; i++) {
+                ctx.lineTo(this.splinePoints[i].x, this.splinePoints[i].y);
+            }
+        } else {
+            // Draw curved path by sampling the curve
+            const samples = 100;
+            let firstPoint = true;
+            
+            for (let i = 0; i <= samples; i++) {
+                const t = i / samples;
+                const point = this.getCurvedPointAt(t);
+                if (point) {
+                    if (firstPoint) {
+                        ctx.moveTo(point.x, point.y);
+                        firstPoint = false;
+                    } else {
+                        ctx.lineTo(point.x, point.y);
+                    }
+                }
+            }
+        }
+        
+        ctx.stroke();
+        
+        // Restore coordinate system
+        ctx.translate(centerX, centerY);
     }
     
     
@@ -1040,14 +1459,19 @@ class TextTickerTool {
     }
     
     drawRibbonForCurrentShape(ctx, text, borderWidth) {
-        // Draw ribbon borders based on current shape
-        switch (this.currentShape) {
-            case 'circle':
-                this.drawCircleRibbon(ctx, text, borderWidth);
-                break;
-            case 'rectangle':
-                this.drawRectangleRibbon(ctx, text, borderWidth);
-                break;
+        // Draw ribbon borders based on current path mode
+        if (this.currentPathMode === 'spline') {
+            this.drawSplineRibbon(ctx, text, borderWidth);
+        } else {
+            // Shape mode - draw based on current shape
+            switch (this.currentShape) {
+                case 'circle':
+                    this.drawCircleRibbon(ctx, text, borderWidth);
+                    break;
+                case 'rectangle':
+                    this.drawRectangleRibbon(ctx, text, borderWidth);
+                    break;
+            }
         }
     }
     
@@ -1062,7 +1486,7 @@ class TextTickerTool {
             const x = radius * Math.cos(angle);
             const y = radius * Math.sin(angle);
             
-            this.drawSingleCharacterRibbon(ctx, text[i], x, y, angle + Math.PI / 2, borderWidth);
+            this.drawSingleCharacterRibbon(ctx, text[i], x, y, angle + Math.PI / 2, borderWidth); // Match text rotation
         }
     }
     
@@ -1089,7 +1513,36 @@ class TextTickerTool {
             const distanceAlongPerimeter = (i * charSpacing + animationOffsetDistance) % perimeter;
             const pathPoint = pathCalculator(distanceAlongPerimeter, width, height, cornerRadius);
             
-            this.drawSingleCharacterRibbon(ctx, text[i], pathPoint.x, pathPoint.y, pathPoint.angle, borderWidth);
+            this.drawSingleCharacterRibbon(ctx, text[i], pathPoint.x, pathPoint.y, pathPoint.angle, borderWidth); // Match text rotation
+        }
+    }
+    
+    drawSplineRibbon(ctx, text, borderWidth) {
+        if (this.splinePoints.length < 2) return;
+        
+        const pathLength = this.calculateSplinePathLength();
+        const charSpacing = pathLength / text.length;
+        
+        // Fixed animation speed - 1 pixel per degree regardless of path length
+        const animationOffsetDistance = this.animationOffset;
+        
+        // Get canvas dimensions for coordinate transformation
+        const canvas = ctx.canvas;
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        
+        for (let i = 0; i < text.length; i++) {
+            const distanceAlongPath = (i * charSpacing + animationOffsetDistance) % pathLength;
+            const pathPoint = this.getPointOnSplinePath(distanceAlongPath);
+            
+            if (pathPoint) {
+                // Convert absolute canvas coordinates to current rotated coordinate system
+                // pathPoint.x,y are in absolute canvas coordinates, but current context is rotated around center
+                const transformedX = pathPoint.x - centerX;
+                const transformedY = pathPoint.y - centerY;
+                
+                this.drawSingleCharacterRibbon(ctx, text[i], transformedX, transformedY, pathPoint.angle, borderWidth); // Match text rotation
+            }
         }
     }
     
@@ -1224,14 +1677,19 @@ class TextTickerTool {
     }
     
     drawWordRibbonsForCurrentShape(ctx, text, words, borderWidth) {
-        // Draw word ribbons based on current shape
-        switch (this.currentShape) {
-            case 'circle':
-                this.drawCircleWordRibbons(ctx, text, words, borderWidth);
-                break;
-            case 'rectangle':
-                this.drawRectangleWordRibbons(ctx, text, words, borderWidth);
-                break;
+        // Draw word ribbons based on current path mode
+        if (this.currentPathMode === 'spline') {
+            this.drawSplineWordRibbons(ctx, text, words, borderWidth);
+        } else {
+            // Shape mode - draw based on current shape
+            switch (this.currentShape) {
+                case 'circle':
+                    this.drawCircleWordRibbons(ctx, text, words, borderWidth);
+                    break;
+                case 'rectangle':
+                    this.drawRectangleWordRibbons(ctx, text, words, borderWidth);
+                    break;
+            }
         }
     }
     
@@ -1293,6 +1751,33 @@ class TextTickerTool {
         }
     }
     
+    drawSplineWordRibbons(ctx, text, words, borderWidth) {
+        if (this.splinePoints.length < 2) return; // Need at least 2 points
+        
+        const pathLength = this.calculateSplinePathLength();
+        if (pathLength === 0) return;
+        
+        const charSpacing = pathLength / text.length;
+        // Fixed animation speed - 1 pixel per degree regardless of path length
+        const animationOffsetDistance = this.animationOffset;
+        
+        // Calculate border padding
+        const borderPadding = borderWidth * 0.5;
+        const ribbonHeight = this.currentFontSize + borderPadding * 2;
+        
+        for (const word of words) {
+            // Calculate word boundaries along the spline path
+            const wordStartDistance = (word.startIndex * charSpacing + animationOffsetDistance) % pathLength;
+            const wordEndDistance = (word.endIndex * charSpacing + animationOffsetDistance) % pathLength;
+            
+            // Calculate word width for ribbon sizing
+            const wordWidth = ctx.measureText(word.text).width;
+            
+            // Draw ribbon segment for the entire word along spline
+            this.drawSingleWordRibbonOnSpline(ctx, word, wordStartDistance, wordEndDistance, pathLength, wordWidth, ribbonHeight, borderPadding);
+        }
+    }
+    
     drawSingleWordRibbonOnCircle(ctx, word, centerAngle, angleSpan, radius, wordWidth, ribbonHeight, borderPadding) {
         ctx.save();
         
@@ -1346,6 +1831,54 @@ class TextTickerTool {
         }
         
         ctx.stroke();
+        ctx.restore();
+    }
+    
+    drawSingleWordRibbonOnSpline(ctx, word, startDistance, endDistance, pathLength, wordWidth, ribbonHeight, borderPadding) {
+        ctx.save();
+        
+        // Handle case where word might wrap around the spline (from end back to start)
+        let wordDistance = endDistance - startDistance;
+        if (wordDistance < 0) {
+            wordDistance += pathLength;
+        }
+        
+        // Apply coordinate transformation to match spline coordinates
+        // The parent ribbon function has rotated around center, but spline points are in absolute coordinates
+        const canvas = ctx.canvas;
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        ctx.translate(-centerX, -centerY);
+        
+        // Set stroke properties for spline ribbon
+        ctx.lineWidth = ribbonHeight;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
+        // Draw path segment along spline for this word
+        ctx.beginPath();
+        
+        // Sample points along the word's portion of the spline path
+        const pathResolution = Math.max(10, Math.ceil(wordDistance / 5)); // Sample every ~5 units or at least 10 points
+        
+        for (let i = 0; i <= pathResolution; i++) {
+            const progress = i / pathResolution;
+            const currentDistance = (startDistance + wordDistance * progress) % pathLength;
+            const pathPoint = this.getPointOnSplinePath(currentDistance);
+            
+            if (pathPoint) {
+                if (i === 0) {
+                    ctx.moveTo(pathPoint.x, pathPoint.y);
+                } else {
+                    ctx.lineTo(pathPoint.x, pathPoint.y);
+                }
+            }
+        }
+        
+        ctx.stroke();
+        
+        // Restore coordinate system
+        ctx.translate(centerX, centerY);
         ctx.restore();
     }
     
@@ -1445,8 +1978,14 @@ class TextTickerTool {
     exportPNG() {
         if (!this.p5Instance) return;
         
+        // Hide guides during export, then restore
+        this.renderText(true); // hideGuides = true
+        
         // Export at original resolution, not zoomed
         this.p5Instance.save('text-ticker-export.png');
+        
+        // Restore normal rendering with guides
+        this.renderText();
         
     }
     
@@ -1473,8 +2012,8 @@ class TextTickerTool {
                 this.rotationSlider.value = this.currentRotation;
                 this.rotationValue.textContent = Math.round(this.currentRotation) + '°';
                 
-                // Render frame
-                this.renderText();
+                // Render frame with guides hidden
+                this.renderText(true); // hideGuides = true
                 
                 // Wait for render to complete
                 await new Promise(resolve => setTimeout(resolve, 16)); // ~60fps
@@ -1688,36 +2227,95 @@ class TextTickerTool {
     
     drawTextOnRecordingCanvas(ctx, canvasWidth, canvasHeight) {
         const text = this.currentText;
-        const radius = this.shapeParameters.circle.radius;
         const rotation = this.currentRotation * (Math.PI / 180);
         
         ctx.save();
         
-        // Center the coordinate system
+        // Apply rotation around center
         const centerX = canvasWidth / 2;
         const centerY = canvasHeight / 2;
         ctx.translate(centerX, centerY);
         ctx.rotate(rotation);
+        ctx.translate(-centerX, -centerY);
         
+        // Set font properties
         ctx.fillStyle = this.currentTextColor;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
         ctx.font = `${this.currentFontWeight} ${this.currentFontSize}px "${this.currentFontFamily}", sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
         
-        const angleStep = (2 * Math.PI) / text.length;
-        // Convert animation offset from degrees to radians and apply to character positioning
-        const animationOffsetRadians = (this.animationOffset * Math.PI) / 180;
+        // Calculate font metrics
+        const metrics = ctx.measureText('Mg');
+        const fontHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+        const baseXHeightOffset = -fontHeight / 2 + metrics.actualBoundingBoxAscent;
+        const xHeightOffset = baseXHeightOffset + this.xHeightDebugOffset;
         
-        for (let i = 0; i < text.length; i++) {
-            const angle = angleStep * i + animationOffsetRadians;
-            const x = radius * Math.cos(angle);
-            const y = radius * Math.sin(angle);
-            
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.rotate(angle + Math.PI / 2);
-            ctx.fillText(text[i], 0, 0);
-            ctx.restore();
+        // Render based on current path mode (same logic as main rendering)
+        if (this.currentPathMode === "shape") {
+            if (this.currentShape === "circle") {
+                const radius = this.shapeParameters.circle.radius;
+                const angleStep = (2 * Math.PI) / text.length;
+                const animationOffsetRadians = (this.animationOffset * Math.PI) / 180;
+                
+                for (let i = 0; i < text.length; i++) {
+                    const angle = angleStep * i + animationOffsetRadians;
+                    const x = centerX + radius * Math.cos(angle);
+                    const y = centerY + radius * Math.sin(angle);
+                    
+                    ctx.save();
+                    ctx.translate(x, y);
+                    ctx.rotate(angle);
+                    ctx.fillText(text[i], 0, xHeightOffset);
+                    ctx.restore();
+                }
+            } else if (this.currentShape === "rectangle") {
+                // Rectangle rendering logic (similar to main drawTextOnRectangle)
+                const width = this.shapeParameters.rectangle.width;
+                const height = this.shapeParameters.rectangle.height;
+                const cornerRadius = this.shapeParameters.rectangle.cornerRadius;
+                
+                const pathCalculator = cornerRadius > 0 ? 
+                    this.getRoundedRectanglePathPoint.bind(this) : 
+                    this.getRectanglePathPoint.bind(this);
+                    
+                const perimeter = cornerRadius > 0 ? 
+                    this.getRoundedRectanglePerimeter(width, height, cornerRadius) : 
+                    2 * (width + height);
+                const charSpacing = perimeter / text.length;
+                const animationOffsetDistance = (this.animationOffset / 360) * perimeter;
+                
+                for (let i = 0; i < text.length; i++) {
+                    const distanceAlongPerimeter = (i * charSpacing + animationOffsetDistance) % perimeter;
+                    const pathPoint = pathCalculator(distanceAlongPerimeter, width, height, cornerRadius);
+                    
+                    ctx.save();
+                    ctx.translate(centerX + pathPoint.x, centerY + pathPoint.y);
+                    ctx.rotate(pathPoint.angle);
+                    ctx.fillText(text[i], 0, xHeightOffset);
+                    ctx.restore();
+                }
+            }
+        } else if (this.currentPathMode === "spline" && this.splinePoints.length >= 2) {
+            // Spline rendering logic (no guides in recording)
+            const pathLength = this.calculateSplinePathLength();
+            if (pathLength > 0) {
+                const charSpacing = pathLength / text.length;
+                // Fixed animation speed - 1 pixel per degree regardless of path length
+                const animationOffsetDistance = this.animationOffset;
+                
+                for (let i = 0; i < text.length; i++) {
+                    const distanceAlongPath = (i * charSpacing + animationOffsetDistance) % pathLength;
+                    const pathPoint = this.getPointOnSplinePath(distanceAlongPath);
+                    
+                    if (pathPoint) {
+                        ctx.save();
+                        ctx.translate(pathPoint.x, pathPoint.y);
+                        ctx.rotate(pathPoint.angle);
+                        ctx.fillText(text[i], 0, xHeightOffset);
+                        ctx.restore();
+                    }
+                }
+            }
         }
         
         ctx.restore();

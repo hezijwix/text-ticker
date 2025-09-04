@@ -78,7 +78,21 @@
             </div>
 
             <div class="controls-section">
-                <h4>Shape Mode</h4>
+                <h4>Path Mode</h4>
+                <div class="preset-control-row">
+                    <label for="pathModeSelect">Mode:</label>
+                    <select id="pathModeSelect" class="preset-select">
+                        <option value="shape">Shape</option>
+                        <option value="spline">Spline</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Shape Properties Section -->
+            <div class="controls-section" id="shapePropertiesSection">
+                <h4>Shape Properties</h4>
+                
+                <!-- Shape Type Selector -->
                 <div class="preset-control-row">
                     <label for="shapeTypeSelect">Shape:</label>
                     <select id="shapeTypeSelect" class="preset-select">
@@ -86,10 +100,6 @@
                         <option value="rectangle">Rectangle</option>
                     </select>
                 </div>
-            </div>
-
-            <div class="controls-section" id="shapePropertiesSection">
-                <h4>Shape Properties</h4>
                 
                 <!-- Circle Properties -->
                 <div id="circleProperties" class="shape-properties-group">
@@ -119,12 +129,48 @@
                     </div>
                 </div>
                 
-                
                 <!-- Common Rotation Control -->
                 <div class="slider-control-row">
                     <label for="rotationSlider">Rotation:</label>
                     <input type="range" id="rotationSlider" min="0" max="360" step="1" value="0" class="control-slider">
                     <span id="rotationValue">0°</span>
+                </div>
+            </div>
+
+            <!-- Spline Properties Section -->
+            <div class="controls-section" id="splinePropertiesSection" style="display: none;">
+                <h4>Spline Properties</h4>
+                
+                <!-- Curve Type Toggle -->
+                <div class="preset-control-row">
+                    <label for="curveTypeSelect">Curve Type:</label>
+                    <select id="curveTypeSelect" class="preset-select">
+                        <option value="linear">Linear</option>
+                        <option value="curved">Curved</option>
+                    </select>
+                </div>
+                
+                <!-- Guide Visibility Toggle -->
+                <div class="preset-control-row">
+                    <label for="showGuidesCheckbox">Show Guides:</label>
+                    <div class="toggle-switch">
+                        <input type="checkbox" id="showGuidesCheckbox" class="toggle-checkbox" checked>
+                        <label for="showGuidesCheckbox" class="toggle-label">
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-text">ON</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Point Management -->
+                <div class="preset-control-row">
+                    <button class="control-btn" id="clearSplineBtn">Clear All Points</button>
+                </div>
+                
+                <!-- Path Status -->
+                <div class="preset-control-row">
+                    <label>Points:</label>
+                    <span id="splinePointCount">0</span>
                 </div>
             </div>
 
@@ -219,6 +265,7 @@
                 </div>
                 <button class="control-btn" id="resetZoomBtn">Reset Zoom</button>
             </div>
+
 
             <div class="controls-section">
                 <h4>Export</h4>
