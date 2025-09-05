@@ -958,8 +958,8 @@ class TextTickerTool {
         
         // Distribute characters along path
         const charSpacing = pathLength / text.length;
-        // Fixed animation speed - 1 pixel per degree regardless of path length
-        const animationOffsetDistance = this.animationOffset;
+        // Convert animation offset from degrees to proportional distance along path
+        const animationOffsetDistance = (this.animationOffset / 360) * pathLength;
         
         for (let i = 0; i < text.length; i++) {
             const distanceAlongPath = (i * charSpacing + animationOffsetDistance) % pathLength;
@@ -1621,8 +1621,8 @@ class TextTickerTool {
         const pathLength = this.calculateSplinePathLength();
         const charSpacing = pathLength / text.length;
         
-        // Fixed animation speed - 1 pixel per degree regardless of path length
-        const animationOffsetDistance = this.animationOffset;
+        // Convert animation offset from degrees to proportional distance along path
+        const animationOffsetDistance = (this.animationOffset / 360) * pathLength;
         
         // Get canvas dimensions for coordinate transformation
         const canvas = ctx.canvas;
@@ -1881,8 +1881,8 @@ class TextTickerTool {
         if (pathLength === 0) return;
         
         const charSpacing = pathLength / text.length;
-        // Fixed animation speed - 1 pixel per degree regardless of path length
-        const animationOffsetDistance = this.animationOffset;
+        // Convert animation offset from degrees to proportional distance along path
+        const animationOffsetDistance = (this.animationOffset / 360) * pathLength;
         
         // Calculate border padding
         const borderPadding = borderWidth * 0.5;
@@ -2453,8 +2453,8 @@ class TextTickerTool {
             const pathLength = this.calculateSplinePathLength();
             if (pathLength > 0) {
                 const charSpacing = pathLength / text.length;
-                // Fixed animation speed - 1 pixel per degree regardless of path length
-                const animationOffsetDistance = this.animationOffset;
+                // Convert animation offset from degrees to proportional distance along path
+                const animationOffsetDistance = (this.animationOffset / 360) * pathLength;
                 
                 for (let i = 0; i < text.length; i++) {
                     const distanceAlongPath = (i * charSpacing + animationOffsetDistance) % pathLength;
@@ -2771,8 +2771,8 @@ class SplinePath {
         
         // Calculate character positioning using uniform distribution
         const charSpacing = pathLength / text.length;
-        // Fixed animation speed - 1 pixel per degree regardless of path length
-        const animationOffset = this.tool.animationOffset;
+        // Convert animation offset from degrees to proportional distance along path
+        const animationOffset = (this.tool.animationOffset / 360) * pathLength;
         
         // Render each character along the spline path
         for (let i = 0; i < text.length; i++) {
