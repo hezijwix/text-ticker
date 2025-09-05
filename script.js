@@ -860,8 +860,8 @@ class TextTickerTool {
         
         // Distribute characters along path
         const charSpacing = pathLength / text.length;
-        // Fixed animation speed - 1 pixel per degree regardless of path length
-        const animationOffsetDistance = this.animationOffset;
+        // Proportional animation offset - converts degrees to distance along path for smooth cycling
+        const animationOffsetDistance = (this.animationOffset / 360) * pathLength;
         
         for (let i = 0; i < text.length; i++) {
             const distanceAlongPath = (i * charSpacing + animationOffsetDistance) % pathLength;
@@ -1523,8 +1523,8 @@ class TextTickerTool {
         const pathLength = this.calculateSplinePathLength();
         const charSpacing = pathLength / text.length;
         
-        // Fixed animation speed - 1 pixel per degree regardless of path length
-        const animationOffsetDistance = this.animationOffset;
+        // Proportional animation offset - converts degrees to distance along path for smooth cycling
+        const animationOffsetDistance = (this.animationOffset / 360) * pathLength;
         
         // Get canvas dimensions for coordinate transformation
         const canvas = ctx.canvas;
@@ -1758,8 +1758,8 @@ class TextTickerTool {
         if (pathLength === 0) return;
         
         const charSpacing = pathLength / text.length;
-        // Fixed animation speed - 1 pixel per degree regardless of path length
-        const animationOffsetDistance = this.animationOffset;
+        // Proportional animation offset - converts degrees to distance along path for smooth cycling
+        const animationOffsetDistance = (this.animationOffset / 360) * pathLength;
         
         // Calculate border padding
         const borderPadding = borderWidth * 0.5;
@@ -1837,12 +1837,6 @@ class TextTickerTool {
     drawSingleWordRibbonOnSpline(ctx, word, startDistance, endDistance, pathLength, wordWidth, ribbonHeight, borderPadding) {
         ctx.save();
         
-        // Handle case where word might wrap around the spline (from end back to start)
-        let wordDistance = endDistance - startDistance;
-        if (wordDistance < 0) {
-            wordDistance += pathLength;
-        }
-        
         // Apply coordinate transformation to match spline coordinates
         // The parent ribbon function has rotated around center, but spline points are in absolute coordinates
         const canvas = ctx.canvas;
@@ -1855,15 +1849,38 @@ class TextTickerTool {
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         
-        // Draw path segment along spline for this word
+        // Check if word wraps around (from end back to start of spline)
+        if (endDistance < startDistance) {
+            // Word wraps around - split into two separate segments to avoid direct connection
+            
+            // Segment 1: From startDistance to end of path
+            this.drawSplineSegment(ctx, startDistance, pathLength, pathLength);
+            
+            // Segment 2: From start of path to endDistance
+            this.drawSplineSegment(ctx, 0, endDistance, pathLength);
+        } else {
+            // Normal case - word doesn't wrap around
+            this.drawSplineSegment(ctx, startDistance, endDistance, pathLength);
+        }
+        
+        // Restore coordinate system
+        ctx.translate(centerX, centerY);
+        ctx.restore();
+    }
+    
+    drawSplineSegment(ctx, segmentStart, segmentEnd, pathLength) {
+        const segmentDistance = segmentEnd - segmentStart;
+        if (segmentDistance <= 0) return; // Nothing to draw
+        
+        // Calculate resolution for smooth curves
+        const pathResolution = Math.max(10, Math.ceil(segmentDistance / 5)); // Sample every ~5 units or at least 10 points
+        
         ctx.beginPath();
         
-        // Sample points along the word's portion of the spline path
-        const pathResolution = Math.max(10, Math.ceil(wordDistance / 5)); // Sample every ~5 units or at least 10 points
-        
+        // Sample points along this segment of the spline path
         for (let i = 0; i <= pathResolution; i++) {
             const progress = i / pathResolution;
-            const currentDistance = (startDistance + wordDistance * progress) % pathLength;
+            const currentDistance = segmentStart + segmentDistance * progress;
             const pathPoint = this.getPointOnSplinePath(currentDistance);
             
             if (pathPoint) {
@@ -1876,10 +1893,6 @@ class TextTickerTool {
         }
         
         ctx.stroke();
-        
-        // Restore coordinate system
-        ctx.translate(centerX, centerY);
-        ctx.restore();
     }
     
     // Image handling
@@ -2300,8 +2313,8 @@ class TextTickerTool {
             const pathLength = this.calculateSplinePathLength();
             if (pathLength > 0) {
                 const charSpacing = pathLength / text.length;
-                // Fixed animation speed - 1 pixel per degree regardless of path length
-                const animationOffsetDistance = this.animationOffset;
+                // Proportional animation offset - converts degrees to distance along path for smooth cycling
+                const animationOffsetDistance = (this.animationOffset / 360) * pathLength;
                 
                 for (let i = 0; i < text.length; i++) {
                     const distanceAlongPath = (i * charSpacing + animationOffsetDistance) % pathLength;
