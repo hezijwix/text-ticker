@@ -22,6 +22,9 @@ class TextTickerTool {
         this.xHeightSlider = document.getElementById('xHeightSlider');
         this.xHeightValue = document.getElementById('xHeightValue');
         
+        // Developer controls
+        this.modularArchToggle = document.getElementById('modularArchToggle');
+        
         // Path mode controls
         this.pathModeSelect = document.getElementById('pathModeSelect');
         
@@ -149,7 +152,8 @@ class TextTickerTool {
         // Animation properties
         this.animationSpeed = 1.0;  // Speed multiplier (0 = stopped, higher = faster)
         this.animationDirection = "clockwise";  // "clockwise" or "counterclockwise"
-        this.animationOffset = 0;  // Current animation position along path
+        this.animationOffset = 0;  // Current animation position along path (degrees, for shapes)
+        this.splineAnimationDistance = 0;  // Current animation position along spline (distance units)
         this.lastAnimationTime = 0;  // For time-based animation
         this.animationFrameId = null;  // For requestAnimationFrame
         
@@ -161,6 +165,24 @@ class TextTickerTool {
         // Auto-zoom properties
         this.autoZoom = 1.0;
         this.manualZoom = 1.0;
+        
+        // Feature flag for gradual modular migration
+        this.useModularArchitecture = false;
+        
+        // Modular path system components (will be activated by feature flag)
+        this.pathManager = null;
+        this.circlePath = null;
+        this.rectanglePath = null;
+        this.splinePath = null;
+        this.ribbonRenderer = null;
+        
+        // Phase 4: Advanced modular components
+        this.exportManager = null;
+        this.validationManager = null;
+        this.moduleLoader = null;
+        
+        // Module loading state
+        this.modulesLoaded = false;
         
         // Initialize the tool
         this.init();
@@ -186,6 +208,9 @@ class TextTickerTool {
         this.updateShapeControls(); // Initialize shape controls visibility
         this.updateSplinePointCount(); // Initialize spline point count
         this.initFFmpeg(); // Initialize FFmpeg for video conversion
+        
+        // Initialize modular architecture components (if enabled)
+        this.initModularComponents();
         
         // Handle window resize
         window.addEventListener('resize', () => {
@@ -245,17 +270,44 @@ class TextTickerTool {
                     const currentTime = p.millis();
                     const deltaTime = (currentTime - self.lastAnimationTime) / 1000; // Convert to seconds
                     
-                    // Base speed: 1.0x = 60 degrees per second (1 full rotation every 6 seconds)
-                    const baseDegreesPerSecond = 60;
                     const speedMultiplier = self.animationSpeed;
                     const directionMultiplier = self.animationDirection === "clockwise" ? 1 : -1;
                     
-                    const deltaOffset = baseDegreesPerSecond * speedMultiplier * directionMultiplier * deltaTime;
-                    self.animationOffset = (self.animationOffset + deltaOffset) % 360;
+                    let deltaOffset;
                     
-                    // Ensure positive values for calculations
-                    if (self.animationOffset < 0) {
-                        self.animationOffset += 360;
+                    if (self.currentPathMode === "spline" && self.splinePoints.length >= 2) {
+                        // For splines: use distance-per-second for consistent visual speed
+                        // Base speed: move one character spacing per second at 1.0x speed
+                        const pathLength = self.calculateSplinePathLength();
+                        if (pathLength > 0) {
+                            const baseDistancePerSecond = pathLength / self.currentText.length; // One character spacing per second
+                            const deltaDistance = baseDistancePerSecond * speedMultiplier * directionMultiplier * deltaTime;
+                            
+                            // Update spline distance directly (no degree conversion needed)
+                            self.splineAnimationDistance = (self.splineAnimationDistance + deltaDistance) % pathLength;
+                            
+                            // Ensure positive values for calculations
+                            if (self.splineAnimationDistance < 0) {
+                                self.splineAnimationDistance += pathLength;
+                            }
+                        }
+                        
+                        // Keep degree-based offset in sync for mode switching (convert distance to degrees)
+                        if (pathLength > 0) {
+                            self.animationOffset = (self.splineAnimationDistance / pathLength) * 360;
+                        }
+                    } else {
+                        // For shapes: use degrees-per-second (original behavior)
+                        // Base speed: 1.0x = 60 degrees per second (1 full rotation every 6 seconds)
+                        const baseDegreesPerSecond = 60;
+                        deltaOffset = baseDegreesPerSecond * speedMultiplier * directionMultiplier * deltaTime;
+                        
+                        self.animationOffset = (self.animationOffset + deltaOffset) % 360;
+                        
+                        // Ensure positive values for calculations
+                        if (self.animationOffset < 0) {
+                            self.animationOffset += 360;
+                        }
                     }
                     
                     self.lastAnimationTime = currentTime;
@@ -341,9 +393,51 @@ class TextTickerTool {
             this.renderText();
         });
         
+        // Modular Architecture Toggle
+        this.modularArchToggle.addEventListener('change', () => {
+            this.useModularArchitecture = this.modularArchToggle.checked;
+            const toggleText = this.modularArchToggle.parentElement.querySelector('.toggle-text');
+            toggleText.textContent = this.useModularArchitecture ? 'On' : 'Off';
+            
+            // Initialize module loader if needed
+            if (!this.moduleLoader) {
+                this.moduleLoader = new ModuleLoader(this);
+            }
+            
+            // Load or unload modular components
+            if (this.useModularArchitecture) {
+                this.moduleLoader.loadModularComponents();
+                console.log('🔧 Phase 4 modular architecture activated - Advanced features enabled');
+            } else {
+                this.moduleLoader.unloadModularComponents();
+                console.log('🔧 Switched back to original architecture');
+            }
+            
+            this.renderText();
+            console.log('Modular Architecture:', this.useModularArchitecture ? 'ENABLED' : 'DISABLED');
+            
+            // Log current path mode for testing
+            if (this.useModularArchitecture) {
+                console.log('🔧 Testing mode: Watch for colored path method calls');
+                console.log('🔵 = CirclePath, 🟠 = RectanglePath, 🟢 = SplinePath');
+                console.log('🎬 = ExportManager, ✅ = ValidationManager, 📦 = ModuleLoader');
+            }
+            
+            // Log performance comparison after a few renders
+            setTimeout(() => {
+                PerformanceMonitor.logComparison();
+            }, 2000);
+        });
+        
         // Path mode selection
         this.pathModeSelect.addEventListener('change', () => {
-            this.currentPathMode = this.pathModeSelect.value;
+            const newPathMode = this.pathModeSelect.value;
+            const oldPathMode = this.currentPathMode;
+            
+            // Convert animation offset between modes to maintain continuity
+            this.convertAnimationOffsetBetweenModes(oldPathMode, newPathMode);
+            
+            this.currentPathMode = newPathMode;
             this.updatePathModeControls();
             this.renderText();
         });
@@ -651,6 +745,12 @@ class TextTickerTool {
             return;
         }
         
+        // Start performance monitoring
+        const perfMeasurement = PerformanceMonitor.startTiming(
+            'renderText', 
+            this.useModularArchitecture ? 'modular' : 'original'
+        );
+        
         const p = this.p5Instance;
         
         // Set background
@@ -666,12 +766,18 @@ class TextTickerTool {
         }
         
         // Draw text ribbons based on mode
-        if (this.ribbonMode === "shapePath") {
-            this.drawShapePathRibbon(p);
-        } else if (this.ribbonMode === "character") {
-            this.drawCharacterRibbon(p);
-        } else if (this.ribbonMode === "wordsBound") {
-            this.drawWordsBoundRibbon(p);
+        if (this.useModularArchitecture && this.ribbonRenderer) {
+            // Use modular ribbon rendering
+            this.ribbonRenderer.render(p);
+        } else {
+            // Use original ribbon rendering
+            if (this.ribbonMode === "shapePath") {
+                this.drawShapePathRibbon(p);
+            } else if (this.ribbonMode === "character") {
+                this.drawCharacterRibbon(p);
+            } else if (this.ribbonMode === "wordsBound") {
+                this.drawWordsBoundRibbon(p);
+            }
         }
         
         // Draw text based on current shape - pass hideGuides to drawTextOnPath
@@ -680,6 +786,12 @@ class TextTickerTool {
         // Draw foreground image if loaded
         if (this.foregroundImageElement) {
             p.image(this.foregroundImageElement, 0, 0, p.width, p.height);
+        }
+        
+        // End performance monitoring
+        const duration = PerformanceMonitor.endTiming(perfMeasurement);
+        if (duration > 16.67) { // Flag renders slower than 60fps
+            console.warn(`⚠️ Slow render: ${duration.toFixed(2)}ms (${this.useModularArchitecture ? 'modular' : 'original'})`);
         }
     }
     
@@ -750,6 +862,37 @@ class TextTickerTool {
         }
     }
     
+    convertAnimationOffsetBetweenModes(oldMode, newMode) {
+        // Convert animation offset between modes to maintain visual continuity
+        if (oldMode === newMode) return; // No conversion needed
+        
+        if (oldMode === "spline" && newMode === "shape") {
+            // Converting FROM spline TO shape: Convert distance to degrees
+            if (this.splinePoints.length >= 2) {
+                const pathLength = this.calculateSplinePathLength();
+                if (pathLength > 0) {
+                    // Convert spline distance to equivalent degrees (0-360)
+                    this.animationOffset = (this.splineAnimationDistance / pathLength) * 360;
+                }
+            }
+            // Spline distance remains as-is for future spline mode use
+            
+        } else if (oldMode === "shape" && newMode === "spline") {
+            // Converting FROM shape TO spline: Convert degrees to distance
+            if (this.splinePoints.length >= 2) {
+                const pathLength = this.calculateSplinePathLength();
+                if (pathLength > 0) {
+                    // Convert degrees to spline distance
+                    this.splineAnimationDistance = (this.animationOffset / 360) * pathLength;
+                }
+            } else {
+                // If no spline points yet, set distance to 0
+                this.splineAnimationDistance = 0;
+            }
+            // Degree offset remains as-is for future shape mode use
+        }
+    }
+    
     updateShapeControls() {
         // Hide all shape property groups
         this.circleProperties.style.display = 'none';
@@ -801,21 +944,27 @@ class TextTickerTool {
     }
     
     drawTextOnPath(p, hideGuides = false) {
-        if (this.currentPathMode === "shape") {
-            switch (this.currentShape) {
-                case 'circle':
-                    this.drawTextOnCircle(p);
-                    break;
-                case 'rectangle':
-                    this.drawTextOnRectangle(p);
-                    break;
-            }
-        } else if (this.currentPathMode === "spline") {
-            this.drawTextOnSpline(p);
-            
-            // Only show guides if showGuides is true AND hideGuides is false (not during export)
-            if (this.showGuides && !hideGuides) {
-                this.drawSplineGuides(p);
+        if (this.useModularArchitecture && this.pathManager) {
+            // Use new modular architecture
+            return this.pathManager.drawCurrentPath(p, hideGuides);
+        } else {
+            // Use original monolithic approach
+            if (this.currentPathMode === "shape") {
+                switch (this.currentShape) {
+                    case 'circle':
+                        this.drawTextOnCircle(p);
+                        break;
+                    case 'rectangle':
+                        this.drawTextOnRectangle(p);
+                        break;
+                }
+            } else if (this.currentPathMode === "spline") {
+                this.drawTextOnSpline(p);
+                
+                // Only show guides if showGuides is true AND hideGuides is false (not during export)
+                if (this.showGuides && !hideGuides) {
+                    this.drawSplineGuides(p);
+                }
             }
         }
     }
@@ -860,8 +1009,8 @@ class TextTickerTool {
         
         // Distribute characters along path
         const charSpacing = pathLength / text.length;
-        // Proportional animation offset - converts degrees to distance along path for smooth cycling
-        const animationOffsetDistance = (this.animationOffset / 360) * pathLength;
+        // Use direct distance-based animation offset for consistent speed regardless of path length
+        const animationOffsetDistance = this.splineAnimationDistance;
         
         for (let i = 0; i < text.length; i++) {
             const distanceAlongPath = (i * charSpacing + animationOffsetDistance) % pathLength;
@@ -1523,8 +1672,8 @@ class TextTickerTool {
         const pathLength = this.calculateSplinePathLength();
         const charSpacing = pathLength / text.length;
         
-        // Proportional animation offset - converts degrees to distance along path for smooth cycling
-        const animationOffsetDistance = (this.animationOffset / 360) * pathLength;
+        // Use direct distance-based animation offset for consistent speed regardless of path length
+        const animationOffsetDistance = this.splineAnimationDistance;
         
         // Get canvas dimensions for coordinate transformation
         const canvas = ctx.canvas;
@@ -1758,8 +1907,8 @@ class TextTickerTool {
         if (pathLength === 0) return;
         
         const charSpacing = pathLength / text.length;
-        // Proportional animation offset - converts degrees to distance along path for smooth cycling
-        const animationOffsetDistance = (this.animationOffset / 360) * pathLength;
+        // Use direct distance-based animation offset for consistent speed regardless of path length
+        const animationOffsetDistance = this.splineAnimationDistance;
         
         // Calculate border padding
         const borderPadding = borderWidth * 0.5;
@@ -2313,8 +2462,8 @@ class TextTickerTool {
             const pathLength = this.calculateSplinePathLength();
             if (pathLength > 0) {
                 const charSpacing = pathLength / text.length;
-                // Proportional animation offset - converts degrees to distance along path for smooth cycling
-                const animationOffsetDistance = (this.animationOffset / 360) * pathLength;
+                // Use direct distance-based animation offset for consistent speed regardless of path length
+                const animationOffsetDistance = this.splineAnimationDistance;
                 
                 for (let i = 0; i < text.length; i++) {
                     const distanceAlongPath = (i * charSpacing + animationOffsetDistance) % pathLength;
@@ -2446,9 +2595,842 @@ class TextTickerTool {
         this.exportBtn.textContent = 'Export';
         
     }
+    
+    // =================================================================
+    // MODULAR ARCHITECTURE COMPONENTS
+    // =================================================================
+    
+    initModularComponents() {
+        if (this.useModularArchitecture) {
+            this.circlePath = new CirclePath(this);
+            this.rectanglePath = new RectanglePath(this);
+            this.splinePath = new SplinePath(this);
+            this.pathManager = new PathManager(this);
+            this.ribbonRenderer = new RibbonRenderer(this);
+        }
+    }
+    
+    // Update drawTextOnPath to support modular architecture
+    drawTextOnPathModular(p, hideGuides = false) {
+        if (this.currentPathMode === "shape") {
+            switch (this.currentShape) {
+                case 'circle':
+                    return this.circlePath.drawText(p);
+                case 'rectangle':
+                    return this.rectanglePath.drawText(p);
+            }
+        } else if (this.currentPathMode === "spline") {
+            this.splinePath.drawText(p);
+            
+            // Only show guides if showGuides is true AND hideGuides is false (not during export)
+            if (this.showGuides && !hideGuides) {
+                this.splinePath.drawGuides(p);
+            }
+        }
+    }
+}
+
+// =================================================================
+// PATH WRAPPER CLASSES - Initially delegate to original methods
+// =================================================================
+
+class CirclePath {
+    constructor(tool) {
+        this.tool = tool;
+    }
+    
+    drawText(p) {
+        // Use modular utilities for cleaner, more maintainable code
+        console.log('🔵 CirclePath.drawText() - Modular architecture with utilities');
+        
+        const text = this.tool.currentText;
+        const radius = this.tool.shapeParameters.circle.radius;
+        
+        // Setup canvas and coordinate system
+        const { ctx, centerX, centerY, rotation } = CanvasManager.setupCanvas(p, this.tool);
+        ctx.save();
+        
+        // Apply rotation around center
+        CanvasManager.applyRotation(ctx, centerX, centerY, rotation);
+        
+        // Setup font and get metrics
+        const { xHeightOffset } = FontManager.setupCanvasFont(ctx, this.tool);
+        
+        // Calculate character positioning
+        const angleStep = (2 * Math.PI) / text.length;
+        const animationOffsetRadians = AnimationManager.getAnimationOffset(this.tool, 0, true);
+        
+        // Render each character
+        for (let i = 0; i < text.length; i++) {
+            const angle = angleStep * i + animationOffsetRadians;
+            const x = radius * Math.cos(angle);
+            const y = radius * Math.sin(angle);
+            
+            FontManager.renderCharacter(ctx, text[i], x, y, angle + Math.PI / 2, xHeightOffset);
+        }
+        
+        ctx.restore();
+    }
+}
+
+class RectanglePath {
+    constructor(tool) {
+        this.tool = tool;
+    }
+    
+    drawText(p) {
+        // Use modular utilities for cleaner, more maintainable code
+        console.log('🟠 RectanglePath.drawText() - Modular architecture with utilities');
+        
+        const text = this.tool.currentText;
+        const width = this.tool.shapeParameters.rectangle.width;
+        const height = this.tool.shapeParameters.rectangle.height;
+        const cornerRadius = this.tool.shapeParameters.rectangle.cornerRadius;
+        
+        // Setup canvas and coordinate system
+        const { ctx, centerX, centerY, rotation } = CanvasManager.setupCanvas(p, this.tool);
+        ctx.save();
+        
+        // Apply rotation around center
+        CanvasManager.applyRotation(ctx, centerX, centerY, rotation);
+        
+        // Setup font and get metrics
+        const { xHeightOffset } = FontManager.setupCanvasFont(ctx, this.tool);
+        
+        // Calculate path properties
+        const pathCalculator = cornerRadius > 0 ? 
+            this.tool.getRoundedRectanglePathPoint.bind(this.tool) : 
+            this.tool.getRectanglePathPoint.bind(this.tool);
+        
+        const perimeter = cornerRadius > 0 ? 
+            this.tool.getRoundedRectanglePerimeter(width, height, cornerRadius) : 
+            2 * (width + height);
+        
+        const charSpacing = perimeter / text.length;
+        const animationOffset = AnimationManager.getAnimationOffset(this.tool, perimeter);
+        
+        // Render each character along the rectangle path
+        for (let i = 0; i < text.length; i++) {
+            const distanceAlongPerimeter = AnimationManager.calculateCharacterPosition(
+                i, charSpacing, animationOffset, perimeter
+            );
+            const pathPoint = pathCalculator(distanceAlongPerimeter, width, height, cornerRadius);
+            
+            FontManager.renderCharacter(ctx, text[i], pathPoint.x, pathPoint.y, pathPoint.angle, xHeightOffset);
+        }
+        
+        ctx.restore();
+    }
+}
+
+class SplinePath {
+    constructor(tool) {
+        this.tool = tool;
+    }
+    
+    drawText(p) {
+        // Use modular utilities for cleaner, more maintainable code
+        console.log('🟢 SplinePath.drawText() - Modular architecture with utilities');
+        
+        if (this.tool.splinePoints.length < 2) {
+            return; // Need at least 2 points to create a path
+        }
+        
+        const text = this.tool.currentText;
+        const pathLength = this.tool.calculateSplinePathLength();
+        if (pathLength === 0) return;
+        
+        // Setup canvas and coordinate system  
+        const { ctx, centerX, centerY, rotation } = CanvasManager.setupCanvas(p, this.tool);
+        ctx.save();
+        
+        // Apply spline-specific rotation (different from shape rotation)
+        CanvasManager.applySplineRotation(ctx, centerX, centerY, rotation);
+        
+        // Setup font and get metrics
+        const { xHeightOffset } = FontManager.setupCanvasFont(ctx, this.tool);
+        
+        // Calculate character positioning along spline
+        const charSpacing = pathLength / text.length;
+        const animationOffset = AnimationManager.getAnimationOffset(this.tool, pathLength);
+        
+        // Render each character along the spline path
+        for (let i = 0; i < text.length; i++) {
+            const distanceAlongPath = AnimationManager.calculateCharacterPosition(
+                i, charSpacing, animationOffset, pathLength
+            );
+            const pathPoint = this.tool.getPointOnSplinePath(distanceAlongPath);
+            
+            if (pathPoint) {
+                FontManager.renderCharacter(ctx, text[i], pathPoint.x, pathPoint.y, pathPoint.angle, xHeightOffset);
+            }
+        }
+        
+        ctx.restore();
+    }
+    
+    drawGuides(p) {
+        // Initially delegate to original method (keep this simple for now)
+        return this.tool.drawSplineGuides(p);
+    }
+}
+
+// ===============================================================================
+// PHASE 4: Advanced Modular Components - Export Management & Enhanced Utilities
+// ===============================================================================
+
+class ExportManager {
+    constructor(tool) {
+        this.tool = tool;
+        this.exportQueue = [];
+        this.isExporting = false;
+        this.exportHistory = [];
+        console.log('🎬 ExportManager initialized - Advanced export system ready');
+    }
+    
+    // Unified export dispatcher
+    async exportContent(options = {}) {
+        const defaultOptions = {
+            format: 'png',
+            duration: 5,
+            quality: 1.0,
+            guides: false,
+            filename: null
+        };
+        
+        const exportOptions = { ...defaultOptions, ...options };
+        console.log('🎬 ExportManager.exportContent() - Starting export with options:', exportOptions);
+        
+        this.tool.performanceMonitor.startOperation('export');
+        
+        try {
+            switch (exportOptions.format.toLowerCase()) {
+                case 'png':
+                    return await this.exportPNG(exportOptions);
+                case 'mp4':
+                    return await this.exportMP4(exportOptions);
+                case 'png-sequence':
+                    return await this.exportPNGSequence(exportOptions);
+                default:
+                    throw new Error(`Unsupported export format: ${exportOptions.format}`);
+            }
+        } catch (error) {
+            console.error('🎬 ExportManager export failed:', error);
+            throw error;
+        } finally {
+            this.tool.performanceMonitor.endOperation('export');
+        }
+    }
+    
+    async exportPNG(options) {
+        console.log('🎬 ExportManager.exportPNG() - High-quality PNG export');
+        
+        // Use original export method with performance monitoring
+        this.tool.performanceMonitor.startOperation('png-render');
+        
+        // Temporarily hide guides for clean export
+        const originalShowGuides = this.tool.showGuides;
+        if (!options.guides) {
+            this.tool.showGuides = false;
+        }
+        
+        try {
+            // Delegate to original method but with enhanced monitoring
+            this.tool.renderText(true); // Hide guides during render
+            this.tool.p.save(options.filename || 'text-ticker-export.png');
+            
+            this.addToExportHistory('PNG', options.filename);
+            return { success: true, format: 'PNG' };
+            
+        } finally {
+            // Restore guides state
+            if (!options.guides) {
+                this.tool.showGuides = originalShowGuides;
+            }
+            this.tool.performanceMonitor.endOperation('png-render');
+        }
+    }
+    
+    async exportMP4(options) {
+        console.log('🎬 ExportManager.exportMP4() - Video export with frame optimization');
+        
+        // Delegate to original MP4 export but with enhanced tracking
+        this.tool.performanceMonitor.startOperation('mp4-export');
+        
+        try {
+            // Use existing MP4 export logic
+            await this.tool.exportVideo();
+            
+            this.addToExportHistory('MP4', options.filename);
+            return { success: true, format: 'MP4' };
+            
+        } finally {
+            this.tool.performanceMonitor.endOperation('mp4-export');
+        }
+    }
+    
+    async exportPNGSequence(options) {
+        console.log('🎬 ExportManager.exportPNGSequence() - Frame sequence export');
+        
+        this.tool.performanceMonitor.startOperation('png-sequence');
+        
+        try {
+            // Use existing PNG sequence logic
+            await this.tool.exportPNGSequence();
+            
+            this.addToExportHistory('PNG Sequence', options.filename);
+            return { success: true, format: 'PNG Sequence' };
+            
+        } finally {
+            this.tool.performanceMonitor.endOperation('png-sequence');
+        }
+    }
+    
+    addToExportHistory(format, filename) {
+        this.exportHistory.push({
+            format,
+            filename,
+            timestamp: new Date(),
+            settings: this.captureCurrentSettings()
+        });
+        
+        // Keep only last 10 exports
+        if (this.exportHistory.length > 10) {
+            this.exportHistory.shift();
+        }
+    }
+    
+    captureCurrentSettings() {
+        return {
+            text: this.tool.currentText,
+            font: this.tool.currentFontFamily,
+            weight: this.tool.currentFontWeight,
+            size: this.tool.currentFontSize,
+            pathMode: this.tool.currentPathMode,
+            architecture: this.tool.useModularArchitecture ? 'modular' : 'original'
+        };
+    }
+    
+    getExportHistory() {
+        return this.exportHistory;
+    }
+}
+
+class ValidationManager {
+    constructor(tool) {
+        this.tool = tool;
+        this.validationRules = new Map();
+        this.setupDefaultRules();
+        console.log('✅ ValidationManager initialized - Quality gates active');
+    }
+    
+    setupDefaultRules() {
+        this.validationRules.set('text_length', {
+            validate: (text) => text && text.length > 0 && text.length <= 500,
+            message: 'Text must be 1-500 characters'
+        });
+        
+        this.validationRules.set('font_size', {
+            validate: (size) => size >= 8 && size <= 200,
+            message: 'Font size must be 8-200px'
+        });
+        
+        this.validationRules.set('spline_points', {
+            validate: (points) => !points || points.length >= 2 || points.length === 0,
+            message: 'Spline needs at least 2 points or none'
+        });
+    }
+    
+    validateCurrentState() {
+        const results = {
+            valid: true,
+            errors: [],
+            warnings: []
+        };
+        
+        // Text validation
+        if (!this.validationRules.get('text_length').validate(this.tool.currentText)) {
+            results.valid = false;
+            results.errors.push(this.validationRules.get('text_length').message);
+        }
+        
+        // Font size validation
+        if (!this.validationRules.get('font_size').validate(this.tool.currentFontSize)) {
+            results.valid = false;
+            results.errors.push(this.validationRules.get('font_size').message);
+        }
+        
+        // Spline validation
+        if (this.tool.currentPathMode === 'spline') {
+            if (!this.validationRules.get('spline_points').validate(this.tool.splinePoints)) {
+                results.valid = false;
+                results.errors.push(this.validationRules.get('spline_points').message);
+            }
+        }
+        
+        return results;
+    }
+    
+    validateBeforeExport() {
+        const state = this.validateCurrentState();
+        if (!state.valid) {
+            console.warn('⚠️ ValidationManager: Export validation failed:', state.errors);
+        }
+        return state;
+    }
+}
+
+class ModuleLoader {
+    constructor(tool) {
+        this.tool = tool;
+        this.loadedModules = new Set();
+        this.loadingPromises = new Map();
+        console.log('📦 ModuleLoader initialized - Dynamic module loading ready');
+    }
+    
+    async loadModularComponents() {
+        if (this.tool.modulesLoaded) {
+            return true;
+        }
+        
+        try {
+            console.log('📦 ModuleLoader: Loading all modular components...');
+            
+            // Initialize all modular components
+            this.tool.pathManager = new PathManager(this.tool);
+            this.tool.circlePath = new CirclePath(this.tool);
+            this.tool.rectanglePath = new RectanglePath(this.tool);
+            this.tool.splinePath = new SplinePath(this.tool);
+            this.tool.ribbonRenderer = new RibbonRenderer(this.tool);
+            this.tool.exportManager = new ExportManager(this.tool);
+            this.tool.validationManager = new ValidationManager(this.tool);
+            
+            // Initialize shared utilities if they don't exist
+            if (!this.tool.fontManager) {
+                this.tool.fontManager = FontManager;
+            }
+            if (!this.tool.canvasManager) {
+                this.tool.canvasManager = CanvasManager;
+            }
+            if (!this.tool.animationManager) {
+                this.tool.animationManager = AnimationManager;
+            }
+            
+            this.tool.modulesLoaded = true;
+            console.log('📦 ModuleLoader: All components loaded successfully');
+            
+            return true;
+            
+        } catch (error) {
+            console.error('📦 ModuleLoader: Failed to load components:', error);
+            return false;
+        }
+    }
+    
+    unloadModularComponents() {
+        this.tool.pathManager = null;
+        this.tool.circlePath = null;
+        this.tool.rectanglePath = null;
+        this.tool.splinePath = null;
+        this.tool.ribbonRenderer = null;
+        this.tool.exportManager = null;
+        this.tool.validationManager = null;
+        
+        this.tool.modulesLoaded = false;
+        console.log('📦 ModuleLoader: Modular components unloaded');
+    }
+    
+    async loadModule(moduleName) {
+        if (this.loadedModules.has(moduleName)) {
+            return true;
+        }
+        
+        if (this.loadingPromises.has(moduleName)) {
+            return await this.loadingPromises.get(moduleName);
+        }
+        
+        const loadPromise = this.performModuleLoad(moduleName);
+        this.loadingPromises.set(moduleName, loadPromise);
+        
+        try {
+            const result = await loadPromise;
+            this.loadedModules.add(moduleName);
+            return result;
+        } finally {
+            this.loadingPromises.delete(moduleName);
+        }
+    }
+    
+    async performModuleLoad(moduleName) {
+        console.log(`📦 ModuleLoader: Loading ${moduleName}...`);
+        
+        switch (moduleName) {
+            case 'export':
+                if (!this.tool.exportManager) {
+                    this.tool.exportManager = new ExportManager(this.tool);
+                }
+                return true;
+                
+            case 'validation':
+                if (!this.tool.validationManager) {
+                    this.tool.validationManager = new ValidationManager(this.tool);
+                }
+                return true;
+                
+            default:
+                console.warn(`📦 ModuleLoader: Unknown module ${moduleName}`);
+                return false;
+        }
+    }
+    
+    getLoadedModules() {
+        return Array.from(this.loadedModules);
+    }
+    
+    isModuleLoaded(moduleName) {
+        return this.loadedModules.has(moduleName);
+    }
+}
+
+// Enhanced Debug Utilities with Advanced Features
+class AdvancedDebugUtils {
+    constructor() {
+        this.metrics = new Map();
+        this.logs = [];
+        this.maxLogs = 100;
+    }
+    
+    logArchitectureSwitch(fromArch, toArch, renderTime) {
+        const logEntry = {
+            type: 'architecture_switch',
+            from: fromArch,
+            to: toArch,
+            renderTime,
+            timestamp: Date.now()
+        };
+        
+        this.addLog(logEntry);
+        console.log(`🔄 Architecture Switch: ${fromArch} → ${toArch} (${renderTime.toFixed(2)}ms)`);
+    }
+    
+    logPerformanceMetric(operation, duration, details = {}) {
+        const metric = {
+            operation,
+            duration,
+            details,
+            timestamp: Date.now()
+        };
+        
+        if (!this.metrics.has(operation)) {
+            this.metrics.set(operation, []);
+        }
+        
+        this.metrics.get(operation).push(metric);
+        
+        // Keep only last 50 metrics per operation
+        if (this.metrics.get(operation).length > 50) {
+            this.metrics.get(operation).shift();
+        }
+        
+        this.addLog({
+            type: 'performance',
+            ...metric
+        });
+    }
+    
+    addLog(entry) {
+        this.logs.push(entry);
+        if (this.logs.length > this.maxLogs) {
+            this.logs.shift();
+        }
+    }
+    
+    getPerformanceReport() {
+        const report = {};
+        
+        for (const [operation, metrics] of this.metrics.entries()) {
+            if (metrics.length > 0) {
+                const durations = metrics.map(m => m.duration);
+                report[operation] = {
+                    count: metrics.length,
+                    avgDuration: durations.reduce((a, b) => a + b, 0) / durations.length,
+                    minDuration: Math.min(...durations),
+                    maxDuration: Math.max(...durations),
+                    lastRun: new Date(metrics[metrics.length - 1].timestamp)
+                };
+            }
+        }
+        
+        return report;
+    }
+    
+    exportDebugData() {
+        return {
+            metrics: Object.fromEntries(this.metrics),
+            logs: this.logs,
+            performanceReport: this.getPerformanceReport(),
+            timestamp: Date.now()
+        };
+    }
+    
+    clearMetrics() {
+        this.metrics.clear();
+        this.logs = [];
+        console.log('🧹 Debug metrics cleared');
+    }
+}
+
+class PathManager {
+    constructor(tool) {
+        this.tool = tool;
+    }
+    
+    drawCurrentPath(p, hideGuides = false) {
+        return this.tool.drawTextOnPathModular(p, hideGuides);
+    }
+}
+
+// =================================================================
+// RIBBON RENDERING CLASSES
+// =================================================================
+
+class RibbonRenderer {
+    constructor(tool) {
+        this.tool = tool;
+    }
+    
+    render(p) {
+        if (this.tool.ribbonMode === "shapePath") {
+            this.renderShapePath(p);
+        } else if (this.tool.ribbonMode === "character") {
+            this.renderCharacter(p);
+        } else if (this.tool.ribbonMode === "wordsBound") {
+            this.renderWordsBound(p);
+        }
+    }
+    
+    renderShapePath(p) {
+        // Delegate to original method for now
+        this.tool.drawShapePathRibbon(p);
+    }
+    
+    renderCharacter(p) {
+        // Delegate to original method for now
+        this.tool.drawCharacterRibbon(p);
+    }
+    
+    renderWordsBound(p) {
+        // Delegate to original method for now
+        this.tool.drawWordsBoundRibbon(p);
+    }
+}
+
+class CircleRibbonRenderer {
+    static render(ctx, text, tool, borderWidth) {
+        const radius = tool.shapeParameters.circle.radius;
+        const angleStep = (2 * Math.PI) / text.length;
+        const animationOffsetRadians = AnimationManager.getAnimationOffset(tool, 0, true);
+        
+        for (let i = 0; i < text.length; i++) {
+            const angle = angleStep * i + animationOffsetRadians;
+            const x = radius * Math.cos(angle);
+            const y = radius * Math.sin(angle);
+            
+            CircleRibbonRenderer.renderSingleCharacter(ctx, text[i], x, y, angle + Math.PI / 2, borderWidth);
+        }
+    }
+    
+    static renderSingleCharacter(ctx, char, x, y, angle, borderWidth) {
+        if (char === ' ') return; // Skip spaces
+        
+        // Get character metrics for accurate border sizing
+        const metrics = ctx.measureText(char);
+        const charWidth = metrics.width;
+        const charHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+        
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+        
+        // Draw rectangle border behind character
+        ctx.fillRect(
+            -charWidth / 2 - borderWidth,
+            -charHeight / 2 - borderWidth,
+            charWidth + borderWidth * 2,
+            charHeight + borderWidth * 2
+        );
+        
+        ctx.restore();
+    }
+}
+
+// =================================================================
+// SHARED UTILITY CLASSES
+// =================================================================
+
+class FontManager {
+    static setupCanvasFont(ctx, tool) {
+        // Set font properties with variable font support
+        ctx.fillStyle = tool.currentTextColor;
+        ctx.font = `${tool.currentFontWeight} ${tool.currentFontSize}px "${tool.currentFontFamily}", sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
+        
+        // Calculate font metrics for proper vertical centering
+        const metrics = ctx.measureText('Mg');
+        const fontHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+        const baseXHeightOffset = -fontHeight / 2 + metrics.actualBoundingBoxAscent;
+        const xHeightOffset = baseXHeightOffset + tool.xHeightDebugOffset;
+        
+        return { metrics, fontHeight, xHeightOffset };
+    }
+    
+    static renderCharacter(ctx, char, x, y, angle, xHeightOffset) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+        ctx.fillText(char, 0, xHeightOffset);
+        ctx.restore();
+    }
+}
+
+class CanvasManager {
+    static setupCanvas(p, tool) {
+        const canvas = p.canvas;
+        const ctx = canvas.getContext('2d');
+        const centerX = p.width / 2;
+        const centerY = p.height / 2;
+        const rotation = tool.currentRotation * (Math.PI / 180);
+        
+        return { canvas, ctx, centerX, centerY, rotation };
+    }
+    
+    static applyRotation(ctx, centerX, centerY, rotation) {
+        ctx.translate(centerX, centerY);
+        ctx.rotate(rotation);
+    }
+    
+    static applySplineRotation(ctx, centerX, centerY, rotation) {
+        ctx.translate(centerX, centerY);
+        ctx.rotate(rotation);
+        ctx.translate(-centerX, -centerY);
+    }
+}
+
+class AnimationManager {
+    static getAnimationOffset(tool, totalLength, isCircle = false) {
+        if (isCircle) {
+            // Convert degrees to radians for circle
+            return (tool.animationOffset * Math.PI) / 180;
+        } else if (tool.currentPathMode === "spline") {
+            // For splines: use direct distance-based animation offset
+            return tool.splineAnimationDistance;
+        } else {
+            // For rectangles: convert degrees to distance along path
+            return (tool.animationOffset / 360) * totalLength;
+        }
+    }
+    
+    static calculateCharacterPosition(index, charSpacing, animationOffset, totalLength) {
+        return (index * charSpacing + animationOffset) % totalLength;
+    }
+}
+
+class PerformanceMonitor {
+    static measurements = [];
+    
+    static startTiming(label, architecture) {
+        return {
+            label,
+            architecture,
+            startTime: performance.now()
+        };
+    }
+    
+    static endTiming(measurement) {
+        const endTime = performance.now();
+        const duration = endTime - measurement.startTime;
+        
+        this.measurements.push({
+            label: measurement.label,
+            architecture: measurement.architecture,
+            duration: duration,
+            timestamp: Date.now()
+        });
+        
+        // Keep only the last 100 measurements
+        if (this.measurements.length > 100) {
+            this.measurements.shift();
+        }
+        
+        return duration;
+    }
+    
+    static getAverageTime(architecture, label = null) {
+        const filtered = this.measurements.filter(m => 
+            m.architecture === architecture && 
+            (!label || m.label === label)
+        );
+        
+        if (filtered.length === 0) return 0;
+        
+        const sum = filtered.reduce((acc, m) => acc + m.duration, 0);
+        return sum / filtered.length;
+    }
+    
+    static logComparison() {
+        const originalAvg = this.getAverageTime('original', 'renderText');
+        const modularAvg = this.getAverageTime('modular', 'renderText');
+        
+        if (originalAvg > 0 && modularAvg > 0) {
+            const improvement = ((originalAvg - modularAvg) / originalAvg * 100).toFixed(1);
+            console.log(`🔧 Performance Comparison:
+                Original: ${originalAvg.toFixed(2)}ms
+                Modular: ${modularAvg.toFixed(2)}ms
+                ${improvement > 0 ? 'Improvement' : 'Regression'}: ${Math.abs(improvement)}%`);
+        }
+    }
 }
 
 // Initialize the application when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    new TextTickerTool();
+    const tool = new TextTickerTool();
+    
+    // Expose debugging utilities to global scope
+    window.TextTickerDebug = {
+        tool: tool,
+        performance: {
+            clear: () => {
+                PerformanceMonitor.measurements = [];
+                console.log('🧹 Performance measurements cleared');
+            },
+            compare: () => PerformanceMonitor.logComparison(),
+            data: () => PerformanceMonitor.measurements
+        },
+        modules: {
+            loader: () => tool.moduleLoader,
+            export: () => tool.exportManager,
+            validation: () => tool.validationManager,
+            loaded: () => tool.moduleLoader ? tool.moduleLoader.getLoadedModules() : []
+        },
+        export: {
+            history: () => tool.exportManager ? tool.exportManager.getExportHistory() : [],
+            test: async (format = 'png') => {
+                if (tool.exportManager) {
+                    return await tool.exportManager.exportContent({ format });
+                } else {
+                    console.warn('🎬 ExportManager not loaded - Enable modular architecture first');
+                }
+            }
+        },
+        validation: {
+            check: () => tool.validationManager ? tool.validationManager.validateCurrentState() : null,
+            rules: () => tool.validationManager ? Array.from(tool.validationManager.validationRules.keys()) : []
+        },
+        toggleArchitecture: () => {
+            tool.modularArchToggle.click();
+        }
+    };
+    
+    console.log('🔧 Debug utilities available at window.TextTickerDebug');
 });
