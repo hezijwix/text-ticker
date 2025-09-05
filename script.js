@@ -144,6 +144,10 @@ class TextTickerTool {
         this.showGuides = true;
         this.splinePathLength = 0;
         
+        // Arc-length parameterization system
+        this.arcLengthTable = new ArcLengthTable();
+        this.arcLengthCacheValid = false; // Track whether arc-length table is up-to-date
+        
         // Text Ribbon properties
         this.ribbonMode = "character";  // "off", "character", "shapePath", "wordsBound"
         this.ribbonWidth = 0.25;  // Proportional to font size
@@ -275,15 +279,15 @@ class TextTickerTool {
                     
                     let deltaOffset;
                     
-                    if (self.currentPathMode === "spline" && self.splinePoints.length >= 2) {
-                        // For splines: use distance-per-second for consistent visual speed
-                        // Base speed: move one character spacing per second at 1.0x speed
-                        const pathLength = self.calculateSplinePathLength();
+                    if (self.currentPathMode === "spline" && self.splinePoints.length >= 2 && self.arcLengthCacheValid) {
+                        // For splines: use CONSTANT pixel-per-second speed regardless of path length
+                        // Fixed base speed: 120 pixels per second at 1.0x speed
+                        const basePixelsPerSecond = 120; 
+                        const deltaDistance = basePixelsPerSecond * speedMultiplier * directionMultiplier * deltaTime;
+                        
+                        // Update spline distance using arc-length table total length
+                        const pathLength = self.arcLengthTable.totalLength;
                         if (pathLength > 0) {
-                            const baseDistancePerSecond = pathLength / self.currentText.length; // One character spacing per second
-                            const deltaDistance = baseDistancePerSecond * speedMultiplier * directionMultiplier * deltaTime;
-                            
-                            // Update spline distance directly (no degree conversion needed)
                             self.splineAnimationDistance = (self.splineAnimationDistance + deltaDistance) % pathLength;
                             
                             // Ensure positive values for calculations
@@ -486,6 +490,7 @@ class TextTickerTool {
         // Spline controls
         this.curveTypeSelect.addEventListener('change', () => {
             this.curveType = this.curveTypeSelect.value;
+            this.rebuildArcLengthTable();
             this.renderText();
         });
         
@@ -500,6 +505,7 @@ class TextTickerTool {
         this.clearSplineBtn.addEventListener('click', () => {
             this.splinePoints = [];
             this.updateSplinePointCount();
+            this.rebuildArcLengthTable();
             this.renderText();
         });
         
@@ -868,8 +874,8 @@ class TextTickerTool {
         
         if (oldMode === "spline" && newMode === "shape") {
             // Converting FROM spline TO shape: Convert distance to degrees
-            if (this.splinePoints.length >= 2) {
-                const pathLength = this.calculateSplinePathLength();
+            if (this.splinePoints.length >= 2 && this.arcLengthCacheValid) {
+                const pathLength = this.arcLengthTable.totalLength;
                 if (pathLength > 0) {
                     // Convert spline distance to equivalent degrees (0-360)
                     this.animationOffset = (this.splineAnimationDistance / pathLength) * 360;
@@ -880,10 +886,16 @@ class TextTickerTool {
         } else if (oldMode === "shape" && newMode === "spline") {
             // Converting FROM shape TO spline: Convert degrees to distance
             if (this.splinePoints.length >= 2) {
-                const pathLength = this.calculateSplinePathLength();
-                if (pathLength > 0) {
-                    // Convert degrees to spline distance
-                    this.splineAnimationDistance = (this.animationOffset / 360) * pathLength;
+                // Ensure arc-length table is built
+                if (!this.arcLengthCacheValid) {
+                    this.rebuildArcLengthTable();
+                }
+                if (this.arcLengthTable.isValid) {
+                    const pathLength = this.arcLengthTable.totalLength;
+                    if (pathLength > 0) {
+                        // Convert degrees to spline distance
+                        this.splineAnimationDistance = (this.animationOffset / 360) * pathLength;
+                    }
                 }
             } else {
                 // If no spline points yet, set distance to 0
@@ -913,6 +925,19 @@ class TextTickerTool {
         this.splinePointCount.textContent = this.splinePoints.length;
     }
     
+    /**
+     * Rebuild arc-length table when spline points or curve type changes
+     * This enables consistent pixel-per-second speed regardless of path length
+     */
+    rebuildArcLengthTable() {
+        if (this.splinePoints.length >= 2) {
+            this.arcLengthTable.buildFromPoints(this.splinePoints, this.curveType);
+            this.arcLengthCacheValid = true;
+        } else {
+            this.arcLengthCacheValid = false;
+        }
+    }
+    
     handleSplineMousePressed(mouseX, mouseY) {
         // Check if click is within canvas bounds
         const canvas = this.p5Instance.canvas;
@@ -931,6 +956,7 @@ class TextTickerTool {
                 // Remove this point
                 this.splinePoints.splice(i, 1);
                 this.updateSplinePointCount();
+                this.rebuildArcLengthTable();
                 this.renderText();
                 return; // Don't add a new point
             }
@@ -940,6 +966,7 @@ class TextTickerTool {
         const newPoint = { x: mouseX, y: mouseY };
         this.splinePoints.push(newPoint);
         this.updateSplinePointCount();
+        this.rebuildArcLengthTable();
         this.renderText();
     }
     
@@ -1003,18 +1030,27 @@ class TextTickerTool {
         const baseXHeightOffset = -fontHeight / 2 + metrics.actualBoundingBoxAscent;
         const xHeightOffset = baseXHeightOffset + this.xHeightDebugOffset;
         
-        // Calculate path length
-        const pathLength = this.calculateSplinePathLength();
-        if (pathLength === 0) return;
+        // Use arc-length parameterization for consistent character spacing
+        if (!this.arcLengthCacheValid || !this.arcLengthTable.isValid) {
+            this.rebuildArcLengthTable();
+        }
         
-        // Distribute characters along path
-        const charSpacing = pathLength / text.length;
-        // Use direct distance-based animation offset for consistent speed regardless of path length
+        if (!this.arcLengthTable.isValid) {
+            ctx.restore();
+            return;
+        }
+        
+        // Hybrid approach: Uniform distribution with arc-length positioning
+        const pathLength = this.arcLengthTable.totalLength;
+        const charSpacing = pathLength / text.length; // Uniform distribution (spans entire spline)
+        
+        // Use animation distance for consistent speed
         const animationOffsetDistance = this.splineAnimationDistance;
         
         for (let i = 0; i < text.length; i++) {
+            // Use uniform spacing to distribute text across entire spline
             const distanceAlongPath = (i * charSpacing + animationOffsetDistance) % pathLength;
-            const pathPoint = this.getPointOnSplinePath(distanceAlongPath);
+            const pathPoint = this.arcLengthTable.getPointAtDistance(distanceAlongPath);
             
             if (pathPoint) {
                 ctx.save();
@@ -1112,6 +1148,16 @@ class TextTickerTool {
     getPointOnSplinePath(distance) {
         if (this.splinePoints.length < 2) return null;
         
+        // Use arc-length table for accurate positioning (primary method)
+        if (!this.arcLengthCacheValid || !this.arcLengthTable.isValid) {
+            this.rebuildArcLengthTable();
+        }
+        
+        if (this.arcLengthTable.isValid) {
+            return this.arcLengthTable.getPointAtDistance(distance);
+        }
+        
+        // Fallback to old methods if arc-length table is not available
         if (this.curveType === "linear") {
             return this.getLinearPointAtDistance(distance);
         } else {
@@ -1150,10 +1196,18 @@ class TextTickerTool {
     }
     
     getCurvedPointAtDistance(targetDistance) {
-        // For curved splines, we need to sample the curve and find the point at the target distance
+        // Use arc-length table for accurate distance-based positioning
+        if (!this.arcLengthCacheValid || !this.arcLengthTable.isValid) {
+            this.rebuildArcLengthTable();
+        }
+        
+        if (this.arcLengthTable.isValid) {
+            return this.arcLengthTable.getPointAtDistance(targetDistance);
+        }
+        
+        // Fallback to old method if arc-length table is not available
         const pathLength = this.calculateSplinePathLength();
         const t = targetDistance / pathLength;
-        
         return this.getCurvedPointAt(t);
     }
     
@@ -1669,8 +1723,14 @@ class TextTickerTool {
     drawSplineRibbon(ctx, text, borderWidth) {
         if (this.splinePoints.length < 2) return;
         
-        const pathLength = this.calculateSplinePathLength();
-        const charSpacing = pathLength / text.length;
+        // Use arc-length table for consistent spacing
+        if (!this.arcLengthCacheValid || !this.arcLengthTable.isValid) {
+            this.rebuildArcLengthTable();
+        }
+        if (!this.arcLengthTable.isValid) return;
+        
+        const pathLength = this.arcLengthTable.totalLength;
+        const charSpacing = pathLength / text.length; // Uniform distribution for proper spline fit
         
         // Use direct distance-based animation offset for consistent speed regardless of path length
         const animationOffsetDistance = this.splineAnimationDistance;
@@ -1682,7 +1742,7 @@ class TextTickerTool {
         
         for (let i = 0; i < text.length; i++) {
             const distanceAlongPath = (i * charSpacing + animationOffsetDistance) % pathLength;
-            const pathPoint = this.getPointOnSplinePath(distanceAlongPath);
+            const pathPoint = this.arcLengthTable.getPointAtDistance(distanceAlongPath);
             
             if (pathPoint) {
                 // Convert absolute canvas coordinates to current rotated coordinate system
@@ -1888,25 +1948,54 @@ class TextTickerTool {
         const ribbonHeight = this.currentFontSize + borderPadding * 2;
         
         for (const word of words) {
-            // Calculate word boundaries along the rectangle perimeter
-            const wordStartDistance = (word.startIndex * charSpacing + animationOffsetDistance) % perimeter;
-            const wordEndDistance = (word.endIndex * charSpacing + animationOffsetDistance) % perimeter;
+            // Calculate raw word boundaries WITHOUT modulo to detect wrapping
+            const rawStartDistance = word.startIndex * charSpacing + animationOffsetDistance;
+            const rawEndDistance = word.endIndex * charSpacing + animationOffsetDistance;
+            
+            // Check if word spans across perimeter boundary (would create unwanted connection)
+            const startPathCycle = Math.floor(rawStartDistance / perimeter);
+            const endPathCycle = Math.floor(rawEndDistance / perimeter);
             
             // Calculate word width for ribbon sizing
             const wordWidth = ctx.measureText(word.text).width;
             
-            // Draw ribbon segment for the entire word
-            this.drawSingleWordRibbonOnRectangle(ctx, word, wordStartDistance, wordEndDistance, width, height, cornerRadius, wordWidth, ribbonHeight, borderPadding, perimeter, pathCalculator);
+            if (startPathCycle !== endPathCycle) {
+                // Word wraps around - split into two separate segments
+                
+                // Segment 1: From word start to end of perimeter
+                const segment1Start = rawStartDistance % perimeter;
+                const segment1End = perimeter; // End of perimeter
+                if (segment1End > segment1Start) {
+                    this.drawSingleWordRibbonOnRectangle(ctx, word, segment1Start, segment1End, width, height, cornerRadius, wordWidth, ribbonHeight, borderPadding, perimeter, pathCalculator);
+                }
+                
+                // Segment 2: From start of perimeter to word end
+                const segment2Start = 0; // Start of perimeter
+                const segment2End = rawEndDistance % perimeter;
+                if (segment2End > segment2Start) {
+                    this.drawSingleWordRibbonOnRectangle(ctx, word, segment2Start, segment2End, width, height, cornerRadius, wordWidth, ribbonHeight, borderPadding, perimeter, pathCalculator);
+                }
+            } else {
+                // Normal case - word doesn't wrap around, safe to render as single segment
+                const wordStartDistance = rawStartDistance % perimeter;
+                const wordEndDistance = rawEndDistance % perimeter;
+                
+                this.drawSingleWordRibbonOnRectangle(ctx, word, wordStartDistance, wordEndDistance, width, height, cornerRadius, wordWidth, ribbonHeight, borderPadding, perimeter, pathCalculator);
+            }
         }
     }
     
     drawSplineWordRibbons(ctx, text, words, borderWidth) {
         if (this.splinePoints.length < 2) return; // Need at least 2 points
         
-        const pathLength = this.calculateSplinePathLength();
-        if (pathLength === 0) return;
+        // Use arc-length table for consistent spacing
+        if (!this.arcLengthCacheValid || !this.arcLengthTable.isValid) {
+            this.rebuildArcLengthTable();
+        }
+        if (!this.arcLengthTable.isValid) return;
         
-        const charSpacing = pathLength / text.length;
+        const pathLength = this.arcLengthTable.totalLength;
+        const charSpacing = pathLength / text.length; // Uniform spacing for proper spline fit
         // Use direct distance-based animation offset for consistent speed regardless of path length
         const animationOffsetDistance = this.splineAnimationDistance;
         
@@ -1915,15 +2004,40 @@ class TextTickerTool {
         const ribbonHeight = this.currentFontSize + borderPadding * 2;
         
         for (const word of words) {
-            // Calculate word boundaries along the spline path
-            const wordStartDistance = (word.startIndex * charSpacing + animationOffsetDistance) % pathLength;
-            const wordEndDistance = (word.endIndex * charSpacing + animationOffsetDistance) % pathLength;
+            // Calculate raw word boundaries WITHOUT modulo to detect wrapping
+            const rawStartDistance = word.startIndex * charSpacing + animationOffsetDistance;
+            const rawEndDistance = word.endIndex * charSpacing + animationOffsetDistance;
+            
+            // Check if word spans across path boundary (would create unwanted connection)
+            const startPathCycle = Math.floor(rawStartDistance / pathLength);
+            const endPathCycle = Math.floor(rawEndDistance / pathLength);
             
             // Calculate word width for ribbon sizing
             const wordWidth = ctx.measureText(word.text).width;
             
-            // Draw ribbon segment for the entire word along spline
-            this.drawSingleWordRibbonOnSpline(ctx, word, wordStartDistance, wordEndDistance, pathLength, wordWidth, ribbonHeight, borderPadding);
+            if (startPathCycle !== endPathCycle) {
+                // Word wraps around - split into two separate segments
+                
+                // Segment 1: From word start to end of path
+                const segment1Start = rawStartDistance % pathLength;
+                const segment1End = pathLength; // End of path
+                if (segment1End > segment1Start) {
+                    this.drawSingleWordRibbonOnSpline(ctx, word, segment1Start, segment1End, pathLength, wordWidth, ribbonHeight, borderPadding);
+                }
+                
+                // Segment 2: From start of path to word end
+                const segment2Start = 0; // Start of path
+                const segment2End = rawEndDistance % pathLength;
+                if (segment2End > segment2Start) {
+                    this.drawSingleWordRibbonOnSpline(ctx, word, segment2Start, segment2End, pathLength, wordWidth, ribbonHeight, borderPadding);
+                }
+            } else {
+                // Normal case - word doesn't wrap around, safe to render as single segment
+                const wordStartDistance = rawStartDistance % pathLength;
+                const wordEndDistance = rawEndDistance % pathLength;
+                
+                this.drawSingleWordRibbonOnSpline(ctx, word, wordStartDistance, wordEndDistance, pathLength, wordWidth, ribbonHeight, borderPadding);
+            }
         }
     }
     
@@ -2000,16 +2114,16 @@ class TextTickerTool {
         
         // Check if word wraps around (from end back to start of spline)
         if (endDistance < startDistance) {
-            // Word wraps around - split into two separate segments to avoid direct connection
+            // Word wraps around - draw two separate segments with independent strokes
             
             // Segment 1: From startDistance to end of path
-            this.drawSplineSegment(ctx, startDistance, pathLength, pathLength);
+            this.drawSplineSegment(ctx, startDistance, pathLength, pathLength, true);
             
-            // Segment 2: From start of path to endDistance
-            this.drawSplineSegment(ctx, 0, endDistance, pathLength);
+            // Segment 2: From start of path to endDistance  
+            this.drawSplineSegment(ctx, 0, endDistance, pathLength, true);
         } else {
             // Normal case - word doesn't wrap around
-            this.drawSplineSegment(ctx, startDistance, endDistance, pathLength);
+            this.drawSplineSegment(ctx, startDistance, endDistance, pathLength, true);
         }
         
         // Restore coordinate system
@@ -2017,7 +2131,7 @@ class TextTickerTool {
         ctx.restore();
     }
     
-    drawSplineSegment(ctx, segmentStart, segmentEnd, pathLength) {
+    drawSplineSegment(ctx, segmentStart, segmentEnd, pathLength, shouldStroke = false) {
         const segmentDistance = segmentEnd - segmentStart;
         if (segmentDistance <= 0) return; // Nothing to draw
         
@@ -2041,7 +2155,10 @@ class TextTickerTool {
             }
         }
         
-        ctx.stroke();
+        // Only stroke if requested (for independent segment rendering)
+        if (shouldStroke) {
+            ctx.stroke();
+        }
     }
     
     // Image handling
@@ -2459,15 +2576,18 @@ class TextTickerTool {
             }
         } else if (this.currentPathMode === "spline" && this.splinePoints.length >= 2) {
             // Spline rendering logic (no guides in recording)
-            const pathLength = this.calculateSplinePathLength();
-            if (pathLength > 0) {
-                const charSpacing = pathLength / text.length;
+            if (!this.arcLengthCacheValid || !this.arcLengthTable.isValid) {
+                this.rebuildArcLengthTable();
+            }
+            if (this.arcLengthTable.isValid) {
+                const pathLength = this.arcLengthTable.totalLength;
+                const charSpacing = pathLength / text.length; // Uniform distribution for proper fit
                 // Use direct distance-based animation offset for consistent speed regardless of path length
                 const animationOffsetDistance = this.splineAnimationDistance;
                 
                 for (let i = 0; i < text.length; i++) {
                     const distanceAlongPath = (i * charSpacing + animationOffsetDistance) % pathLength;
-                    const pathPoint = this.getPointOnSplinePath(distanceAlongPath);
+                    const pathPoint = this.arcLengthTable.getPointAtDistance(distanceAlongPath);
                     
                     if (pathPoint) {
                         ctx.save();
@@ -2631,6 +2751,226 @@ class TextTickerTool {
 }
 
 // =================================================================
+// ARC-LENGTH PARAMETERIZATION SYSTEM
+// =================================================================
+
+/**
+ * Arc-Length Parameterization Table for consistent speed along spline paths
+ * Provides constant pixel-per-second animation regardless of path length
+ */
+class ArcLengthTable {
+    constructor() {
+        this.segments = [];      // Array of {startPoint, endPoint, length, cumLength}
+        this.totalLength = 0;    // Total path length in pixels
+        this.isValid = false;    // Whether the table is up-to-date
+    }
+
+    /**
+     * Build arc-length table from an array of points
+     * @param {Array} points - Array of {x, y} points
+     * @param {string} curveType - "linear" or "curved"
+     * @param {number} resolution - Sampling resolution for curves (segments per point)
+     */
+    buildFromPoints(points, curveType = "linear", resolution = 20) {
+        this.segments = [];
+        this.totalLength = 0;
+        
+        if (points.length < 2) {
+            this.isValid = false;
+            return;
+        }
+
+        if (curveType === "linear") {
+            this._buildLinearSegments(points);
+        } else {
+            this._buildCurvedSegments(points, resolution);
+        }
+        
+        this.isValid = true;
+    }
+
+    /**
+     * Build segments for linear interpolation between points
+     */
+    _buildLinearSegments(points) {
+        let cumulativeLength = 0;
+        
+        for (let i = 0; i < points.length - 1; i++) {
+            const startPoint = points[i];
+            const endPoint = points[i + 1];
+            const segmentLength = this._calculateDistance(startPoint, endPoint);
+            
+            this.segments.push({
+                startPoint,
+                endPoint,
+                length: segmentLength,
+                cumLength: cumulativeLength + segmentLength,
+                type: 'linear'
+            });
+            
+            cumulativeLength += segmentLength;
+        }
+        
+        this.totalLength = cumulativeLength;
+    }
+
+    /**
+     * Build segments for curved (Catmull-Rom) interpolation
+     */
+    _buildCurvedSegments(points, resolution) {
+        let cumulativeLength = 0;
+        
+        for (let i = 0; i < points.length - 1; i++) {
+            const segmentPoints = this._sampleCurvedSegment(points, i, resolution);
+            
+            // Create linear sub-segments for the curved segment
+            for (let j = 0; j < segmentPoints.length - 1; j++) {
+                const startPoint = segmentPoints[j];
+                const endPoint = segmentPoints[j + 1];
+                const segmentLength = this._calculateDistance(startPoint, endPoint);
+                
+                this.segments.push({
+                    startPoint,
+                    endPoint,
+                    length: segmentLength,
+                    cumLength: cumulativeLength + segmentLength,
+                    type: 'curved',
+                    originalIndex: i
+                });
+                
+                cumulativeLength += segmentLength;
+            }
+        }
+        
+        this.totalLength = cumulativeLength;
+    }
+
+    /**
+     * Sample a curved segment using Catmull-Rom interpolation
+     */
+    _sampleCurvedSegment(points, segmentIndex, resolution) {
+        const sampledPoints = [];
+        
+        // Get control points for Catmull-Rom spline
+        const p0 = points[Math.max(0, segmentIndex - 1)];
+        const p1 = points[segmentIndex];
+        const p2 = points[segmentIndex + 1];
+        const p3 = points[Math.min(points.length - 1, segmentIndex + 2)];
+        
+        for (let t = 0; t <= 1; t += 1 / resolution) {
+            const point = this._catmullRomInterpolate(p0, p1, p2, p3, t);
+            sampledPoints.push(point);
+        }
+        
+        return sampledPoints;
+    }
+
+    /**
+     * Catmull-Rom spline interpolation
+     */
+    _catmullRomInterpolate(p0, p1, p2, p3, t) {
+        const t2 = t * t;
+        const t3 = t2 * t;
+        
+        return {
+            x: 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + 
+                   (2*p0.x - 5*p1.x + 4*p2.x - p3.x) * t2 + 
+                   (-p0.x + 3*p1.x - 3*p2.x + p3.x) * t3),
+            y: 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + 
+                   (2*p0.y - 5*p1.y + 4*p2.y - p3.y) * t2 + 
+                   (-p0.y + 3*p1.y - 3*p2.y + p3.y) * t3)
+        };
+    }
+
+    /**
+     * Calculate distance between two points
+     */
+    _calculateDistance(p1, p2) {
+        return Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2);
+    }
+
+    /**
+     * Get point and angle at specific distance along path using binary search
+     * @param {number} distance - Distance along path in pixels
+     * @returns {Object} {x, y, angle} or null if invalid
+     */
+    getPointAtDistance(distance) {
+        if (!this.isValid || this.segments.length === 0) {
+            return null;
+        }
+
+        // Wrap distance to path length for looping animation
+        distance = ((distance % this.totalLength) + this.totalLength) % this.totalLength;
+
+        // Binary search to find the segment containing this distance
+        const segmentIndex = this._findSegmentIndex(distance);
+        if (segmentIndex === -1) {
+            return null;
+        }
+
+        const segment = this.segments[segmentIndex];
+        const prevCumLength = segmentIndex > 0 ? this.segments[segmentIndex - 1].cumLength : 0;
+        const localDistance = distance - prevCumLength;
+        const t = segment.length > 0 ? localDistance / segment.length : 0;
+
+        // Interpolate position
+        const x = segment.startPoint.x + (segment.endPoint.x - segment.startPoint.x) * t;
+        const y = segment.startPoint.y + (segment.endPoint.y - segment.startPoint.y) * t;
+
+        // Calculate tangent angle
+        const dx = segment.endPoint.x - segment.startPoint.x;
+        const dy = segment.endPoint.y - segment.startPoint.y;
+        const angle = Math.atan2(dy, dx);
+
+        return { x, y, angle };
+    }
+
+    /**
+     * Binary search to find segment index for given distance
+     */
+    _findSegmentIndex(distance) {
+        let left = 0;
+        let right = this.segments.length - 1;
+
+        while (left <= right) {
+            const mid = Math.floor((left + right) / 2);
+            const prevCumLength = mid > 0 ? this.segments[mid - 1].cumLength : 0;
+            const currentCumLength = this.segments[mid].cumLength;
+
+            if (distance >= prevCumLength && distance <= currentCumLength) {
+                return mid;
+            } else if (distance < prevCumLength) {
+                right = mid - 1;
+            } else {
+                left = mid + 1;
+            }
+        }
+
+        return -1; // Not found
+    }
+
+    /**
+     * Calculate letter offsets based on text metrics
+     * @param {string} text - Text to measure
+     * @param {CanvasRenderingContext2D} ctx - Canvas context for text measurement
+     * @param {number} trackingFactor - Letter spacing multiplier (default: 1.0)
+     * @returns {Array} Array of cumulative distances for each character
+     */
+    static calculateLetterOffsets(text, ctx, trackingFactor = 1.0) {
+        const offsets = [0]; // First character at position 0
+        let cumulativeWidth = 0;
+
+        for (let i = 0; i < text.length - 1; i++) {
+            const charWidth = ctx.measureText(text[i]).width;
+            cumulativeWidth += charWidth * trackingFactor;
+            offsets.push(cumulativeWidth);
+        }
+
+        return offsets;
+    }
+}
+
+// =================================================================
 // PATH WRAPPER CLASSES - Initially delegate to original methods
 // =================================================================
 
@@ -2737,8 +3077,14 @@ class SplinePath {
         }
         
         const text = this.tool.currentText;
-        const pathLength = this.tool.calculateSplinePathLength();
-        if (pathLength === 0) return;
+        
+        // Use arc-length table for consistent positioning
+        if (!this.tool.arcLengthCacheValid || !this.tool.arcLengthTable.isValid) {
+            this.tool.rebuildArcLengthTable();
+        }
+        if (!this.tool.arcLengthTable.isValid) return;
+        
+        const pathLength = this.tool.arcLengthTable.totalLength;
         
         // Setup canvas and coordinate system  
         const { ctx, centerX, centerY, rotation } = CanvasManager.setupCanvas(p, this.tool);
@@ -2750,16 +3096,14 @@ class SplinePath {
         // Setup font and get metrics
         const { xHeightOffset } = FontManager.setupCanvasFont(ctx, this.tool);
         
-        // Calculate character positioning along spline
-        const charSpacing = pathLength / text.length;
+        // Calculate character positioning using uniform distribution
+        const charSpacing = pathLength / text.length; // Uniform spacing for proper spline fit
         const animationOffset = AnimationManager.getAnimationOffset(this.tool, pathLength);
         
         // Render each character along the spline path
         for (let i = 0; i < text.length; i++) {
-            const distanceAlongPath = AnimationManager.calculateCharacterPosition(
-                i, charSpacing, animationOffset, pathLength
-            );
-            const pathPoint = this.tool.getPointOnSplinePath(distanceAlongPath);
+            const distanceAlongPath = (i * charSpacing + animationOffset) % pathLength;
+            const pathPoint = this.tool.arcLengthTable.getPointAtDistance(distanceAlongPath);
             
             if (pathPoint) {
                 FontManager.renderCharacter(ctx, text[i], pathPoint.x, pathPoint.y, pathPoint.angle, xHeightOffset);
