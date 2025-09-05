@@ -145,6 +145,9 @@ class TextTickerTool {
         this.splinePathLength = 0;
         
         // Arc-length parameterization system
+        this.arcLengthTable = []; // Array of {t, distance, x, y, angle} for even distribution
+        this.totalArcLength = 0; // Cached total arc-length
+        this.arcLengthCacheValid = false; // Cache invalidation flag
         
         // Text Ribbon properties
         this.ribbonMode = "character";  // "off", "character", "shapePath", "wordsBound"
@@ -460,6 +463,7 @@ class TextTickerTool {
         // Spline controls
         this.curveTypeSelect.addEventListener('change', () => {
             this.curveType = this.curveTypeSelect.value;
+            this.invalidateArcLengthCache();
             this.renderText();
         });
         
@@ -473,6 +477,7 @@ class TextTickerTool {
         
         this.clearSplineBtn.addEventListener('click', () => {
             this.splinePoints = [];
+            this.invalidateArcLengthCache();
             this.updateSplinePointCount();
             this.renderText();
         });
@@ -879,6 +884,7 @@ class TextTickerTool {
             if (distance <= clickRadius) {
                 // Remove this point
                 this.splinePoints.splice(i, 1);
+                this.invalidateArcLengthCache();
                 this.updateSplinePointCount();
                     this.renderText();
                 return; // Don't add a new point
@@ -888,6 +894,7 @@ class TextTickerTool {
         // Add a new point
         const newPoint = { x: mouseX, y: mouseY };
         this.splinePoints.push(newPoint);
+        this.invalidateArcLengthCache();
         this.updateSplinePointCount();
         this.renderText();
     }
@@ -1031,31 +1038,22 @@ class TextTickerTool {
     calculateSplinePathLength() {
         if (this.splinePoints.length < 2) return 0;
         
-        let totalLength = 0;
-        
         if (this.curveType === "linear") {
             // Calculate linear path length
+            let totalLength = 0;
             for (let i = 1; i < this.splinePoints.length; i++) {
                 const prev = this.splinePoints[i - 1];
                 const curr = this.splinePoints[i];
                 totalLength += Math.sqrt((curr.x - prev.x) ** 2 + (curr.y - prev.y) ** 2);
             }
+            return totalLength;
         } else {
-            // Estimate curved path length by sampling
-            const samples = 100;
-            let prevPoint = this.getCurvedPointAt(0);
-            
-            for (let i = 1; i <= samples; i++) {
-                const t = i / samples;
-                const currPoint = this.getCurvedPointAt(t);
-                if (prevPoint && currPoint) {
-                    totalLength += Math.sqrt((currPoint.x - prevPoint.x) ** 2 + (currPoint.y - prevPoint.y) ** 2);
-                    prevPoint = currPoint;
-                }
+            // For curved splines, use exact arc-length from pre-computed table
+            if (!this.arcLengthCacheValid || this.arcLengthTable.length === 0) {
+                this.buildArcLengthTable();
             }
+            return this.totalArcLength;
         }
-        
-        return totalLength;
     }
     
     getPointOnSplinePath(distance) {
@@ -1099,11 +1097,69 @@ class TextTickerTool {
     }
     
     getCurvedPointAtDistance(targetDistance) {
-        // For curved splines, we need to sample the curve and find the point at the target distance
-        const pathLength = this.calculateSplinePathLength();
-        const t = targetDistance / pathLength;
+        // Ensure arc-length table is built and valid
+        if (!this.arcLengthCacheValid || this.arcLengthTable.length === 0) {
+            this.buildArcLengthTable();
+        }
         
-        return this.getCurvedPointAt(t);
+        if (this.arcLengthTable.length === 0) {
+            return null;
+        }
+        
+        // Handle edge cases
+        if (targetDistance <= 0) {
+            return this.arcLengthTable[0];
+        }
+        if (targetDistance >= this.totalArcLength) {
+            return this.arcLengthTable[this.arcLengthTable.length - 1];
+        }
+        
+        // Binary search to find the segment containing the target distance
+        let left = 0;
+        let right = this.arcLengthTable.length - 1;
+        
+        while (left < right - 1) {
+            const mid = Math.floor((left + right) / 2);
+            if (this.arcLengthTable[mid].distance < targetDistance) {
+                left = mid;
+            } else {
+                right = mid;
+            }
+        }
+        
+        // Interpolate between the two closest points
+        const point1 = this.arcLengthTable[left];
+        const point2 = this.arcLengthTable[right];
+        
+        const segmentDistance = point2.distance - point1.distance;
+        if (segmentDistance === 0) {
+            return point1;
+        }
+        
+        const t = (targetDistance - point1.distance) / segmentDistance;
+        
+        // Linear interpolation between the two points
+        return {
+            x: point1.x + t * (point2.x - point1.x),
+            y: point1.y + t * (point2.y - point1.y),
+            angle: point1.angle + t * this.angleDiff(point1.angle, point2.angle)
+        };
+    }
+    
+    // Helper function to handle angle interpolation correctly
+    angleDiff(angle1, angle2) {
+        let diff = angle2 - angle1;
+        // Ensure we take the shortest path around the circle
+        while (diff > Math.PI) diff -= 2 * Math.PI;
+        while (diff < -Math.PI) diff += 2 * Math.PI;
+        return diff;
+    }
+    
+    // Invalidate arc-length cache when spline changes
+    invalidateArcLengthCache() {
+        this.arcLengthCacheValid = false;
+        this.arcLengthTable = [];
+        this.totalArcLength = 0;
     }
     
     getCurvedPointAt(t) {
@@ -1159,6 +1215,52 @@ class TextTickerTool {
             (2 * p0 - 5 * p1 + 4 * p2 - p3) * 2 * t +
             (-p0 + 3 * p1 - 3 * p2 + p3) * 3 * t2
         );
+    }
+    
+    // Build arc-length parameterization table for even point distribution
+    buildArcLengthTable() {
+        if (this.splinePoints.length < 2) {
+            this.arcLengthTable = [];
+            this.totalArcLength = 0;
+            this.arcLengthCacheValid = true;
+            return;
+        }
+        
+        this.arcLengthTable = [];
+        let cumulativeDistance = 0;
+        
+        // High resolution sampling for accurate arc-length calculation
+        const segments = 200; // Higher resolution for better accuracy
+        let lastPoint = null;
+        
+        for (let i = 0; i <= segments; i++) {
+            const t = i / segments;
+            const point = this.getCurvedPointAt(t);
+            
+            if (point) {
+                if (lastPoint) {
+                    // Calculate distance from previous point
+                    const dx = point.x - lastPoint.x;
+                    const dy = point.y - lastPoint.y;
+                    const segmentDistance = Math.sqrt(dx * dx + dy * dy);
+                    cumulativeDistance += segmentDistance;
+                }
+                
+                // Store t, cumulative distance, and point data
+                this.arcLengthTable.push({
+                    t: t,
+                    distance: cumulativeDistance,
+                    x: point.x,
+                    y: point.y,
+                    angle: point.angle
+                });
+                
+                lastPoint = point;
+            }
+        }
+        
+        this.totalArcLength = cumulativeDistance;
+        this.arcLengthCacheValid = true;
     }
     
     drawCurvedSplinePath(p) {
