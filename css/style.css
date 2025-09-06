@@ -1,0 +1,8 @@
+/* Text Ticker Tool - Modular CSS Architecture */
+
+/* Import all CSS modules in proper order */
+@import 'variables.css';  /* CSS custom properties first */
+@import 'layout.css';     /* Base layout and structure */
+@import 'controls.css';   /* Form controls and inputs */
+@import 'toggles.css';    /* Toggle switches */
+@import 'modals.css';     /* Modal dialogs */

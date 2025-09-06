@@ -1,0 +1,32 @@
+/* CSS Custom Properties (Variables) for easy customization */
+:root {
+    /* Frame Dimensions - Adjustable size */
+    --frame-width: 800px;
+    --frame-height: 600px;
+    
+    /* Dark Mode Color Palette - Ultra-minimalistic inspired by 099.supply */
+    --border-width: 1px;
+    --border-color: #2a2a2a;
+    --border-color-subtle: #1f1f1f;
+    --text-color: #e5e5e5;
+    --text-color-light: #888;
+    --text-color-subtle: #555;
+    --text-color-bright: #fff;
+    
+    /* Side Panel Styling - Dark 099-inspired design */
+    --side-panel-width: 260px;
+    --side-panel-bg: #0f0f0f;
+    --side-panel-text: #e5e5e5;
+    --side-panel-border: #2a2a2a;
+    --button-primary: #e5e5e5;
+    --button-hover: #fff;
+    --button-subtle: #1a1a1a;
+    --button-subtle-hover: #222;
+    --button-subtle-text: #e5e5e5;
+    --button-subtle-border: #2a2a2a;
+    
+    /* Background Colors */
+    --bg-primary: #121212;
+    --bg-secondary: #181818;
+    --bg-tertiary: #1f1f1f;
+}

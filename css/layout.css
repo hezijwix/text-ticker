@@ -1,0 +1,231 @@
+/* Reset and base styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    font-weight: 400;
+    background-color: var(--bg-primary);
+    overflow: auto;
+    user-select: none;
+    margin: 0;
+    padding: 0;
+    color: var(--text-color);
+    font-size: 13px;
+    line-height: 1.6;
+    letter-spacing: -0.01em;
+}
+
+/* Header Styles */
+.header {
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    padding: 16px 24px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.header-title {
+    font-size: 14px;
+    color: var(--text-color-bright);
+    letter-spacing: 0.02em;
+    font-weight: 500;
+}
+
+.header-credit {
+    font-size: 11px;
+    color: var(--text-color-bright);
+    letter-spacing: 0.02em;
+    font-weight: 400;
+    opacity: 1;
+}
+
+/* Main Container Layout */
+.main-container {
+    display: flex;
+    height: calc(100vh - 57px); /* Subtract header height */
+    background-color: var(--bg-primary);
+    overflow: hidden;
+}
+
+/* Side Panel */
+.side-panel {
+    width: var(--side-panel-width);
+    background-color: var(--side-panel-bg);
+    color: var(--side-panel-text);
+    padding: 24px 20px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    border-right: 1px solid var(--side-panel-border);
+    height: 100%;
+    box-sizing: border-box;
+    flex-shrink: 0;
+}
+
+/* Panel Header */
+.panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    padding: 16px 0 12px;
+    border-bottom: 1px solid var(--border-color-subtle);
+}
+
+.panel-header h3 {
+    margin: 0;
+    color: var(--text-color-bright);
+    font-weight: 400;
+    font-size: 13px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    line-height: 24px;
+}
+
+.side-panel h3, .side-panel h4 {
+    margin-bottom: 16px;
+    color: var(--text-color-bright);
+    font-weight: 400;
+    font-size: 13px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+/* Controls Section */
+.controls-section {
+    margin-bottom: 32px;
+}
+
+.controls-section h4 {
+    margin-bottom: 16px;
+    color: var(--text-color-bright);
+    font-weight: 400;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+/* Content Area */
+.content-area {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--bg-primary);
+    padding: 40px;
+    overflow: auto;
+}
+
+/* Frame Container */
+.frame-container {
+    width: var(--frame-width);
+    height: var(--frame-height);
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Checkerboard background for alpha mode */
+.frame-container.alpha-bg {
+    background-color: transparent !important;
+    background-image:
+        linear-gradient(45deg, rgba(0,0,0,0.15) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(0,0,0,0.15) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(0,0,0,0.15) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(0,0,0,0.15) 75%);
+    background-size: 16px 16px;
+    background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+}
+
+/* Content Placeholder */
+.content-placeholder {
+    text-align: center;
+    color: var(--text-color-light);
+}
+
+.content-placeholder p {
+    font-size: 14px;
+    margin: 0;
+}
+
+/* Help Icon Styling */
+.help-icon {
+    background: none;
+    border: 1px solid var(--button-subtle-border);
+    color: var(--text-color-light);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 50%;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    min-height: 24px;
+}
+
+.help-icon:hover {
+    color: var(--text-color-bright);
+    background-color: var(--button-subtle);
+    border-color: var(--text-color-light);
+}
+
+.help-icon-text {
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+    .content-area {
+        padding: 20px;
+    }
+}
+
+@media (max-width: 768px) {
+    .main-container {
+        flex-direction: column;
+        height: auto;
+    }
+    
+    .side-panel {
+        width: 100%;
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid var(--side-panel-border);
+    }
+    
+    .content-area {
+        padding: 20px;
+    }
+    
+    .frame-container {
+        /* Allow frame to be constrained by JavaScript for proper aspect ratio */
+        max-width: none;
+        max-height: none;
+    }
+    
+    .panel-header {
+        padding: 12px 0 8px;
+        margin-bottom: 12px;
+    }
+    
+    .panel-header h3 {
+        font-size: 13px;
+    }
+}
