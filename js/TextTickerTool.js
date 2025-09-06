@@ -277,6 +277,20 @@ class TextTickerTool {
                     self.splineMode.handleSplineMousePressed(p.mouseX, p.mouseY);
                 }
             };
+            
+            // Mouse drag handler for handle manipulation
+            p.mouseDragged = () => {
+                if (self.currentPathMode === "spline") {
+                    self.splineMode.handleSplineMouseDrag(p.mouseX, p.mouseY);
+                }
+            };
+            
+            // Mouse release handler to stop dragging
+            p.mouseReleased = () => {
+                if (self.currentPathMode === "spline") {
+                    self.splineMode.stopHandleDrag();
+                }
+            };
         };
         
         if (this.p5Instance) {

@@ -8,6 +8,9 @@ class SplineMode {
     
     // Main spline text rendering
     drawText(p, hideGuides = false) {
+        // Ensure handle properties are set up for curved mode
+        this.ensureHandleProperties();
+        
         this.drawTextOnSpline(p);
         
         // Only show guides if showGuides is true AND hideGuides is false (not during export)
@@ -81,6 +84,9 @@ class SplineMode {
     drawSplineGuides(p) {
         if (this.tool.splinePoints.length === 0) return;
         
+        // Ensure userModified property exists for all points
+        this.ensureUserModifiedProperty();
+        
         p.push();
         
         // Apply rotation around center for consistency
@@ -110,11 +116,34 @@ class SplineMode {
             p.pop(); // Restore rendering state after path
         }
         
-        // Draw control points
-        p.fill(255, 100, 100); // Red points
-        p.noStroke();
+        // Draw control points and handles
         for (let i = 0; i < this.tool.splinePoints.length; i++) {
             const point = this.tool.splinePoints[i];
+            
+            // Draw handles for curved mode only
+            if (this.tool.curveType === "curved" && point.handleLength && point.handleAngle !== undefined) {
+                const handles = this.getHandlePositions(point);
+                
+                // Draw handle lines
+                p.push();
+                p.stroke(150, 150, 255, 150); // Light blue handles with transparency
+                p.strokeWeight(1);
+                p.line(handles.handleIn.x, handles.handleIn.y, point.x, point.y);
+                p.line(point.x, point.y, handles.handleOut.x, handles.handleOut.y);
+                p.pop();
+                
+                // Draw handle endpoints
+                p.push();
+                p.fill(100, 100, 255); // Blue handle endpoints
+                p.noStroke();
+                p.circle(handles.handleIn.x, handles.handleIn.y, 4);
+                p.circle(handles.handleOut.x, handles.handleOut.y, 4);
+                p.pop();
+            }
+            
+            // Draw main control point
+            p.fill(255, 100, 100); // Red points
+            p.noStroke();
             p.circle(point.x, point.y, 8);
             
             // Draw point numbers
@@ -122,13 +151,12 @@ class SplineMode {
             p.textAlign(p.CENTER, p.CENTER);
             p.textSize(10);
             p.text(i + 1, point.x, point.y);
-            p.fill(255, 100, 100); // Restore point color
         }
         
         p.pop();
     }
     
-    // Handle mouse interaction for spline point creation/deletion
+    // Handle mouse interaction for spline point creation/deletion and handle dragging
     handleSplineMousePressed(mouseX, mouseY) {
         // Check if click is within canvas bounds
         const canvas = this.tool.p5Instance.canvas;
@@ -137,24 +165,57 @@ class SplineMode {
         }
         
         const clickRadius = 10; // Distance threshold for detecting clicks on existing points
+        const handleClickRadius = 6; // Smaller radius for handle endpoints
         
-        // Check if clicking on an existing point (to delete it)
+        // First, check if clicking on handle endpoints (in curved mode only)
+        if (this.tool.curveType === "curved") {
+            for (let i = 0; i < this.tool.splinePoints.length; i++) {
+                const point = this.tool.splinePoints[i];
+                if (point.handleLength && point.handleAngle !== undefined) {
+                    const handles = this.getHandlePositions(point);
+                    
+                    // Check handleIn
+                    const distanceHandleIn = Math.sqrt((mouseX - handles.handleIn.x) ** 2 + (mouseY - handles.handleIn.y) ** 2);
+                    if (distanceHandleIn <= handleClickRadius) {
+                        this.startHandleDrag(i, 'in', mouseX, mouseY);
+                        return;
+                    }
+                    
+                    // Check handleOut
+                    const distanceHandleOut = Math.sqrt((mouseX - handles.handleOut.x) ** 2 + (mouseY - handles.handleOut.y) ** 2);
+                    if (distanceHandleOut <= handleClickRadius) {
+                        this.startHandleDrag(i, 'out', mouseX, mouseY);
+                        return;
+                    }
+                }
+            }
+        }
+        
+        // Check if clicking on an existing control point (to delete or drag it)
         for (let i = 0; i < this.tool.splinePoints.length; i++) {
             const point = this.tool.splinePoints[i];
             const distance = Math.sqrt((mouseX - point.x) ** 2 + (mouseY - point.y) ** 2);
             
             if (distance <= clickRadius) {
-                // Remove this point
-                this.tool.splinePoints.splice(i, 1);
-                this.invalidateArcLengthCache();
-                this.tool.updateSplinePointCount();
-                this.tool.renderText();
+                // Start point drag detection (will delete if no drag occurs)
+                this.startPointDrag(i, mouseX, mouseY);
                 return; // Don't add a new point
             }
         }
         
-        // Add a new point
-        const newPoint = { x: mouseX, y: mouseY };
+        // Add a new point with default symmetric handles
+        const newPoint = { 
+            x: mouseX, 
+            y: mouseY,
+            handleLength: 50,  // Will be recalculated based on neighbors
+            handleAngle: 0,    // Will be auto-calculated based on path flow
+            userModified: false // Track whether user has manually adjusted handles
+        };
+        
+        // Auto-calculate optimal handle properties based on neighboring points
+        newPoint.handleLength = this.getOptimalHandleLength(newPoint, this.tool.splinePoints);
+        this.calculateDefaultHandleAngle(newPoint, this.tool.splinePoints);
+        
         this.tool.splinePoints.push(newPoint);
         this.invalidateArcLengthCache();
         this.tool.updateSplinePointCount();
@@ -285,41 +346,66 @@ class SplineMode {
         return diff;
     }
     
-    // Get curved point at parametric position t (0-1)
+    // Get curved point at parametric position t (0-1) using cubic Bezier curves
     getCurvedPointAt(t) {
         // Clamp t to [0, 1]
         t = Math.max(0, Math.min(1, t));
         
         if (this.tool.splinePoints.length < 2) return null;
         
-        // Use P5.js curve functions for smooth interpolation
-        // For simplicity, we'll use Catmull-Rom splines
+        // Use cubic Bezier curves with symmetric handles
         const numSegments = this.tool.splinePoints.length - 1;
         const segmentT = t * numSegments;
         const segmentIndex = Math.floor(segmentT);
         const localT = segmentT - segmentIndex;
         
         // Get control points for this segment
-        const p0 = this.tool.splinePoints[Math.max(0, segmentIndex - 1)];
         const p1 = this.tool.splinePoints[segmentIndex];
         const p2 = this.tool.splinePoints[Math.min(this.tool.splinePoints.length - 1, segmentIndex + 1)];
-        const p3 = this.tool.splinePoints[Math.min(this.tool.splinePoints.length - 1, segmentIndex + 2)];
         
         if (!p1 || !p2) return null;
         
-        // Catmull-Rom interpolation
-        const x = this.catmullRomInterpolate(p0?.x || p1.x, p1.x, p2.x, p3?.x || p2.x, localT);
-        const y = this.catmullRomInterpolate(p0?.y || p1.y, p1.y, p2.y, p3?.y || p2.y, localT);
+        // Get handle positions for the two control points
+        const p1Handles = this.getHandlePositions(p1);
+        const p2Handles = this.getHandlePositions(p2);
         
-        // Calculate tangent for angle
-        const tangentX = this.catmullRomTangent(p0?.x || p1.x, p1.x, p2.x, p3?.x || p2.x, localT);
-        const tangentY = this.catmullRomTangent(p0?.y || p1.y, p1.y, p2.y, p3?.y || p2.y, localT);
+        // Cubic Bezier interpolation using:
+        // P0 = p1 (start point)
+        // P1 = p1.handleOut (first control handle)
+        // P2 = p2.handleIn (second control handle) 
+        // P3 = p2 (end point)
+        const x = this.cubicBezierInterpolate(p1.x, p1Handles.handleOut.x, p2Handles.handleIn.x, p2.x, localT);
+        const y = this.cubicBezierInterpolate(p1.y, p1Handles.handleOut.y, p2Handles.handleIn.y, p2.y, localT);
+        
+        // Calculate tangent for angle using Bezier derivative
+        const tangentX = this.cubicBezierTangent(p1.x, p1Handles.handleOut.x, p2Handles.handleIn.x, p2.x, localT);
+        const tangentY = this.cubicBezierTangent(p1.y, p1Handles.handleOut.y, p2Handles.handleIn.y, p2.y, localT);
         const angle = Math.atan2(tangentY, tangentX);
         
         return { x, y, angle };
     }
     
-    // Catmull-Rom spline interpolation
+    // Cubic Bezier interpolation
+    cubicBezierInterpolate(p0, p1, p2, p3, t) {
+        const invT = 1 - t;
+        const invT2 = invT * invT;
+        const invT3 = invT2 * invT;
+        const t2 = t * t;
+        const t3 = t2 * t;
+        
+        return invT3 * p0 + 3 * invT2 * t * p1 + 3 * invT * t2 * p2 + t3 * p3;
+    }
+    
+    // Cubic Bezier tangent calculation (first derivative)
+    cubicBezierTangent(p0, p1, p2, p3, t) {
+        const invT = 1 - t;
+        const invT2 = invT * invT;
+        const t2 = t * t;
+        
+        return -3 * invT2 * p0 + 3 * invT2 * p1 - 6 * invT * t * p1 - 3 * t2 * p2 + 6 * invT * t * p2 + 3 * t2 * p3;
+    }
+    
+    // Legacy Catmull-Rom methods (kept for backward compatibility during transition)
     catmullRomInterpolate(p0, p1, p2, p3, t) {
         const t2 = t * t;
         const t3 = t2 * t;
@@ -332,7 +418,7 @@ class SplineMode {
         );
     }
     
-    // Catmull-Rom tangent calculation
+    // Legacy Catmull-Rom tangent calculation
     catmullRomTangent(p0, p1, p2, p3, t) {
         const t2 = t * t;
         
@@ -394,6 +480,362 @@ class SplineMode {
         this.tool.arcLengthCacheValid = false;
         this.tool.arcLengthTable = [];
         this.tool.totalArcLength = 0;
+    }
+    
+    // Calculate default handle angle using De Casteljau's algorithm for natural curve direction
+    calculateDefaultHandleAngle(newPoint, existingPoints) {
+        // Use De Casteljau's algorithm for mathematically accurate handle positioning
+        newPoint.handleAngle = this.calculateDeCasteljauHandleAngle(newPoint, existingPoints);
+    }
+    
+    // Get symmetric handle positions for a point
+    getHandlePositions(point) {
+        const handleInX = point.x - Math.cos(point.handleAngle) * point.handleLength;
+        const handleInY = point.y - Math.sin(point.handleAngle) * point.handleLength;
+        const handleOutX = point.x + Math.cos(point.handleAngle) * point.handleLength;
+        const handleOutY = point.y + Math.sin(point.handleAngle) * point.handleLength;
+        
+        return {
+            handleIn: { x: handleInX, y: handleInY },
+            handleOut: { x: handleOutX, y: handleOutY }
+        };
+    }
+    
+    // Distance helper function
+    distance(p1, p2) {
+        return Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2);
+    }
+    
+    // De Casteljau's algorithm for Bezier curve evaluation
+    // Returns point on curve at parameter t (0 to 1) given control points
+    deCasteljauEvaluate(controlPoints, t) {
+        if (controlPoints.length === 0) return null;
+        if (controlPoints.length === 1) return { ...controlPoints[0] };
+        
+        // Create working array to avoid modifying original points
+        let points = controlPoints.map(p => ({ x: p.x, y: p.y }));
+        
+        // Recursive linear interpolation
+        while (points.length > 1) {
+            const newPoints = [];
+            for (let i = 0; i < points.length - 1; i++) {
+                // Linear interpolation: (1-t) * p0 + t * p1
+                const x = (1 - t) * points[i].x + t * points[i + 1].x;
+                const y = (1 - t) * points[i].y + t * points[i + 1].y;
+                newPoints.push({ x, y });
+            }
+            points = newPoints;
+        }
+        
+        return points[0];
+    }
+    
+    // De Casteljau's algorithm to find tangent vector at parameter t
+    // Returns both position and tangent direction
+    deCasteljauTangent(controlPoints, t) {
+        if (controlPoints.length < 2) return null;
+        
+        // For tangent calculation, we need the derivative
+        // The derivative of a Bezier curve is another Bezier curve with n-1 control points
+        const derivativePoints = [];
+        const n = controlPoints.length - 1; // degree of curve
+        
+        for (let i = 0; i < controlPoints.length - 1; i++) {
+            // Derivative control points: n * (P[i+1] - P[i])
+            const dx = n * (controlPoints[i + 1].x - controlPoints[i].x);
+            const dy = n * (controlPoints[i + 1].y - controlPoints[i].y);
+            derivativePoints.push({ x: dx, y: dy });
+        }
+        
+        // Evaluate the derivative curve to get tangent vector
+        const tangentVector = this.deCasteljauEvaluate(derivativePoints, t);
+        const position = this.deCasteljauEvaluate(controlPoints, t);
+        
+        if (!tangentVector || !position) return null;
+        
+        // Calculate tangent angle
+        const angle = Math.atan2(tangentVector.y, tangentVector.x);
+        
+        return {
+            position,
+            tangent: tangentVector,
+            angle
+        };
+    }
+    
+    // Use De Casteljau's algorithm to calculate natural handle angle for new points
+    calculateDeCasteljauHandleAngle(newPoint, existingPoints) {
+        if (existingPoints.length < 2) {
+            // Fall back to simple method for insufficient points
+            return this.calculateSimpleHandleAngle(newPoint, existingPoints);
+        }
+        
+        // Create a local curve using the last few points plus the new point
+        const localControlPoints = [];
+        
+        if (existingPoints.length >= 3) {
+            // Use last 3 existing points plus new point for a cubic curve
+            localControlPoints.push(existingPoints[existingPoints.length - 3]);
+            localControlPoints.push(existingPoints[existingPoints.length - 2]);
+            localControlPoints.push(existingPoints[existingPoints.length - 1]);
+            localControlPoints.push(newPoint);
+        } else {
+            // Use all existing points plus new point
+            localControlPoints.push(...existingPoints);
+            localControlPoints.push(newPoint);
+        }
+        
+        // Calculate tangent at the end of the local curve (t = 1)
+        const tangentInfo = this.deCasteljauTangent(localControlPoints, 1.0);
+        
+        if (tangentInfo) {
+            return tangentInfo.angle;
+        } else {
+            // Fall back to simple calculation if De Casteljau fails
+            return this.calculateSimpleHandleAngle(newPoint, existingPoints);
+        }
+    }
+    
+    // Simple fallback handle angle calculation (previous algorithm)
+    calculateSimpleHandleAngle(newPoint, existingPoints) {
+        if (existingPoints.length === 0) {
+            return 0; // Horizontal handles for first point
+        }
+        
+        if (existingPoints.length === 1) {
+            // Handle tangent to line from first to second point
+            const dx = newPoint.x - existingPoints[0].x;
+            const dy = newPoint.y - existingPoints[0].y;
+            return Math.atan2(dy, dx);
+        }
+        
+        // Use chord-tangent approximation for fallback
+        const lastPoint = existingPoints[existingPoints.length - 1];
+        const secondLastPoint = existingPoints[existingPoints.length - 2];
+        
+        const prevDx = lastPoint.x - secondLastPoint.x;
+        const prevDy = lastPoint.y - secondLastPoint.y;
+        const prevAngle = Math.atan2(prevDy, prevDx);
+        
+        const currentDx = newPoint.x - lastPoint.x;
+        const currentDy = newPoint.y - lastPoint.y;
+        const currentAngle = Math.atan2(currentDy, currentDx);
+        
+        // Average the two directions
+        let avgAngle = (prevAngle + currentAngle) / 2;
+        
+        // Handle angle wrapping
+        let angleDiff = currentAngle - prevAngle;
+        if (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+        if (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+        
+        if (Math.abs(angleDiff) > Math.PI / 2) {
+            avgAngle = prevAngle + angleDiff * 0.5;
+        }
+        
+        return avgAngle;
+    }
+    
+    
+    // Get optimal handle length based on neighboring point distances
+    getOptimalHandleLength(point, neighboringPoints) {
+        if (neighboringPoints.length === 0) {
+            return 50; // Default length
+        }
+        
+        // Find the distance to closest neighbors
+        let minDistance = Infinity;
+        for (const neighbor of neighboringPoints) {
+            const dist = this.distance(point, neighbor);
+            if (dist > 0) { // Avoid same point
+                minDistance = Math.min(minDistance, dist);
+            }
+        }
+        
+        if (minDistance === Infinity) {
+            return 50;
+        }
+        
+        // Handle length should be proportional to neighbor distance
+        // But clamped to reasonable bounds
+        const proportionalLength = minDistance * 0.3;
+        return Math.max(20, Math.min(80, proportionalLength));
+    }
+    
+    // Handle dragging state
+    startHandleDrag(pointIndex, handleType, mouseX, mouseY) {
+        this.dragState = {
+            isDragging: true,
+            dragType: 'handle',
+            pointIndex: pointIndex,
+            handleType: handleType, // 'in' or 'out'
+            startMouseX: mouseX,
+            startMouseY: mouseY
+        };
+        
+        // Store original handle values for reference
+        const point = this.tool.splinePoints[pointIndex];
+        this.dragState.originalHandleLength = point.handleLength;
+        this.dragState.originalHandleAngle = point.handleAngle;
+        
+        // Mark this point as user-modified since handle is being manually adjusted
+        point.userModified = true;
+    }
+    
+    // Start point drag (can become either a drag operation or a click-delete)
+    startPointDrag(pointIndex, mouseX, mouseY) {
+        const dragThreshold = 5; // pixels - minimum movement to count as drag
+        
+        this.dragState = {
+            isDragging: false, // Will become true when drag threshold is exceeded
+            dragType: 'point',
+            pointIndex: pointIndex,
+            startMouseX: mouseX,
+            startMouseY: mouseY,
+            dragThreshold: dragThreshold,
+            hasMoved: false
+        };
+        
+        // Store original point position for reference
+        const point = this.tool.splinePoints[pointIndex];
+        this.dragState.originalX = point.x;
+        this.dragState.originalY = point.y;
+    }
+    
+    // Handle mouse drag for handle manipulation and point movement
+    handleSplineMouseDrag(mouseX, mouseY) {
+        if (!this.dragState) return;
+        
+        const point = this.tool.splinePoints[this.dragState.pointIndex];
+        if (!point) return;
+        
+        if (this.dragState.dragType === 'handle' && this.dragState.isDragging) {
+            // Handle dragging (existing functionality)
+            const dx = mouseX - point.x;
+            const dy = mouseY - point.y;
+            
+            const newHandleLength = Math.sqrt(dx * dx + dy * dy);
+            const newHandleAngle = Math.atan2(dy, dx);
+            
+            point.handleLength = Math.max(5, newHandleLength);
+            point.handleAngle = newHandleAngle;
+            
+            this.invalidateArcLengthCache();
+            this.tool.renderText();
+            
+        } else if (this.dragState.dragType === 'point') {
+            // Point dragging
+            const dx = mouseX - this.dragState.startMouseX;
+            const dy = mouseY - this.dragState.startMouseY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // Check if we've moved beyond the drag threshold
+            if (!this.dragState.isDragging && distance > this.dragState.dragThreshold) {
+                this.dragState.isDragging = true;
+                this.dragState.hasMoved = true;
+            }
+            
+            // If we're in drag mode, update the point position
+            if (this.dragState.isDragging) {
+                point.x = mouseX;
+                point.y = mouseY;
+                
+                // Recalculate handles for this point and neighbors using De Casteljau
+                this.recalculateHandlesAfterPointMove(this.dragState.pointIndex);
+                
+                this.invalidateArcLengthCache();
+                this.tool.renderText();
+            }
+        }
+    }
+    
+    // Recalculate handles after a point has been moved
+    recalculateHandlesAfterPointMove(movedPointIndex) {
+        // Recalculate handles for the moved point and its immediate neighbors
+        // but ONLY for points that haven't been manually adjusted by the user
+        const points = this.tool.splinePoints;
+        const indicesToRecalculate = [];
+        
+        // Always recalculate the moved point (unless user-modified)
+        indicesToRecalculate.push(movedPointIndex);
+        
+        // Recalculate previous point if it exists (unless user-modified)
+        if (movedPointIndex > 0) {
+            indicesToRecalculate.push(movedPointIndex - 1);
+        }
+        
+        // Recalculate next point if it exists (unless user-modified)
+        if (movedPointIndex < points.length - 1) {
+            indicesToRecalculate.push(movedPointIndex + 1);
+        }
+        
+        // Recalculate handles using De Casteljau algorithm, but PRESERVE user modifications
+        for (const index of indicesToRecalculate) {
+            const point = points[index];
+            
+            // Skip recalculation if user has manually modified this point's handles
+            if (point.userModified === true) {
+                continue; // Preserve user's manual handle adjustments
+            }
+            
+            // Only recalculate for auto-generated handles
+            const otherPoints = points.slice(0, index).concat(points.slice(index + 1));
+            this.calculateDefaultHandleAngle(point, otherPoints);
+            point.handleLength = this.getOptimalHandleLength(point, otherPoints);
+        }
+    }
+    
+    // Stop dragging (handles point deletion for click-only interactions)
+    stopHandleDrag() {
+        if (this.dragState && this.dragState.dragType === 'point' && !this.dragState.hasMoved) {
+            // This was a click without drag - delete the point
+            const pointIndex = this.dragState.pointIndex;
+            this.tool.splinePoints.splice(pointIndex, 1);
+            this.invalidateArcLengthCache();
+            this.tool.updateSplinePointCount();
+            this.tool.renderText();
+        }
+        
+        this.dragState = null;
+    }
+    
+    // Check if currently dragging a handle
+    isHandleDragging() {
+        return this.dragState && this.dragState.isDragging;
+    }
+    
+    // Upgrade existing spline points to include handle properties
+    upgradeSplinePointsToHandles() {
+        for (let i = 0; i < this.tool.splinePoints.length; i++) {
+            const point = this.tool.splinePoints[i];
+            
+            // Add handle properties if they don't exist
+            if (point.handleLength === undefined) {
+                // Calculate optimal handle length based on existing points
+                const existingPoints = this.tool.splinePoints.slice(0, i);
+                point.handleLength = this.getOptimalHandleLength(point, existingPoints);
+            }
+            if (point.handleAngle === undefined) {
+                point.handleAngle = 0; // Default handle angle - will be recalculated
+                this.calculateDefaultHandleAngle(point, this.tool.splinePoints.slice(0, i));
+            }
+        }
+    }
+    
+    // Ensure all points have handle properties when in curved mode
+    ensureHandleProperties() {
+        if (this.tool.curveType === "curved") {
+            this.upgradeSplinePointsToHandles();
+        }
+    }
+    
+    // Ensure all points have userModified property
+    ensureUserModifiedProperty() {
+        for (const point of this.tool.splinePoints) {
+            if (point.userModified === undefined) {
+                point.userModified = false; // Default to not user-modified for existing points
+            }
+        }
     }
     
     // Draw curved spline path for guides
