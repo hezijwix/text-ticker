@@ -710,12 +710,18 @@ class SplineMode {
         if (!point) return;
         
         if (this.dragState.dragType === 'handle' && this.dragState.isDragging) {
-            // Handle dragging (existing functionality)
+            // Handle dragging with handle-type awareness to prevent flipping
             const dx = mouseX - point.x;
             const dy = mouseY - point.y;
             
             const newHandleLength = Math.sqrt(dx * dx + dy * dy);
-            const newHandleAngle = Math.atan2(dy, dx);
+            let newHandleAngle = Math.atan2(dy, dx);
+            
+            // Fix handle flipping: If dragging handleIn, invert the angle
+            // since handleIn uses (point - angle) while handleOut uses (point + angle)
+            if (this.dragState.handleType === 'in') {
+                newHandleAngle += Math.PI; // Add 180 degrees to invert direction
+            }
             
             point.handleLength = Math.max(5, newHandleLength);
             point.handleAngle = newHandleAngle;
