@@ -67,19 +67,20 @@ A comprehensive design system for the ultra-minimalistic, dark-themed gallery to
 3. **--text-color-light** (#888): Secondary information, value displays
 4. **--text-color-subtle** (#555): Disabled states, hints
 
-#### Interactive States
-- **Default**: --button-subtle (#1a1a1a) background
-- **Hover**: --button-subtle-hover (#222) 
-- **Focus**: --border-color (#2a2a2a) → #333 on focus
-- **Active**: Darker variations or accent colors
+#### Interactive States - Always Dark Theme
+- **Default**: --button-subtle (#1a1a1a) background with light text
+- **Hover**: --button-subtle-hover (#222) - darker on hover
+- **Focus**: --border-color (#2a2a2a) → #666 on focus (grayscale)
+- **Active**: Darker variations maintaining dark backgrounds
+- **Button Rule**: All buttons use dark backgrounds with light text - never light backgrounds
 
 ### Accent Colors
 ```css
-/* Accent Colors (Hardcoded) */
---export-primary: #0066cc;      /* Export buttons */
---export-hover: #0052a3;        /* Export button hover */
---toggle-active: #00ff88;       /* Active toggle state */
---toggle-active-hover: #00cc6a; /* Active toggle hover */
+/* Accent Colors - Grayscale Focus */
+--export-primary: #333333;      /* Export buttons - dark gray */
+--export-hover: #444444;        /* Export button hover - lighter gray */
+--toggle-active: #00ff88;       /* Active toggle state - keep green */
+--toggle-active-hover: #00cc6a; /* Active toggle hover - keep green */
 --danger: #ff4444;              /* Delete/remove actions */
 --danger-hover: #ff6666;        /* Danger hover state */
 ```
@@ -215,9 +216,9 @@ Header (fixed height)
 #### Primary Button (.control-btn)
 ```css
 .control-btn {
-    background-color: var(--button-primary); /* #e5e5e5 */
-    color: var(--bg-primary); /* #121212 - inverted text */
-    border: none;
+    background-color: var(--button-subtle); /* #1a1a1a - always dark */
+    color: var(--text-color); /* #e5e5e5 - light text */
+    border: 1px solid var(--button-subtle-border);
     padding: 8px 16px;
     border-radius: 2px;
     font-size: 11px;
@@ -229,20 +230,23 @@ Header (fixed height)
 }
 
 .control-btn:hover {
-    background-color: var(--button-hover); /* #fff */
+    background-color: var(--button-subtle-hover); /* #222 - darker on hover */
+    border-color: #333;
 }
 ```
 
 #### Export Button (.export-btn)
 ```css
 .export-btn {
-    background-color: #0066cc;
-    color: white;
+    background-color: var(--export-primary); /* #333333 - dark gray */
+    color: var(--text-color-bright); /* #fff - white text */
+    border: 1px solid #444;
     font-weight: 500;
 }
 
 .export-btn:hover {
-    background-color: #0052a3;
+    background-color: var(--export-hover); /* #444444 - lighter gray */
+    border-color: #555;
 }
 
 .export-btn:disabled {
@@ -301,13 +305,13 @@ Header (fixed height)
     appearance: none;
     width: 14px;
     height: 14px;
-    background: var(--button-primary);
+    background: var(--text-color); /* #e5e5e5 - light on dark */
     border-radius: 50%;
     transition: all 0.15s ease;
 }
 
 .control-slider::-webkit-slider-thumb:hover {
-    background: var(--button-hover);
+    background: var(--text-color-bright); /* #fff - lighter on hover */
     transform: scale(1.1);
 }
 ```
@@ -540,11 +544,17 @@ Header (fixed height)
 #### Modal Buttons
 ```css
 .modal-btn-primary {
-    background-color: #0066cc;
-    color: white;
+    background-color: var(--export-primary); /* #333333 - dark gray */
+    color: var(--text-color-bright); /* #fff - white text */
+    border: 1px solid #444;
     font-weight: 500;
     min-width: 100px;
     padding: 10px 20px;
+}
+
+.modal-btn-primary:hover {
+    background-color: var(--export-hover); /* #444444 */
+    border-color: #555;
 }
 
 .modal-btn-secondary {
@@ -655,15 +665,16 @@ transition: all 0.15s ease;
 
 ### Focus Management
 ```css
-/* Focus States */
+/* Focus States - Grayscale Focus Indicators */
 .size-input:focus, .modal-input:focus, .modal-select:focus {
-    border-color: #0066cc;
-    box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.1);
+    border-color: #666;
+    box-shadow: 0 0 0 2px rgba(102, 102, 102, 0.15);
 }
 
 .color-picker:focus {
     outline: none;
-    border-color: var(--button-primary);
+    border-color: #666;
+    box-shadow: 0 0 0 2px rgba(102, 102, 102, 0.15);
 }
 ```
 
@@ -673,6 +684,63 @@ transition: all 0.15s ease;
 - **Skip Links**: Not implemented but recommended for complex layouts
 
 ---
+
+## UI Layout Rules & Constraints
+
+### Panel Margin and Alignment Requirements
+1. **Side Panel Margins**: All content must stay within 20px horizontal margins from panel edges
+2. **Control Containment**: All interactive elements must be fully contained within panel boundaries
+3. **Text Alignment**: All labels, values, and content must align within the 20px margin constraints
+4. **No Element Overflow**: No buttons, sliders, or text should extend beyond the side panel width of 260px
+5. **Responsive Containment**: Elements must remain within panel bounds at all responsive breakpoints
+
+### Text and Label Constraints
+1. **No Text Wrapping on Controls**: All slider labels and values must fit on single lines
+2. **Consistent Text Sizing**: All slider values must use 12px font size with `flex-shrink: 0` and `white-space: nowrap`
+3. **Value Positioning**: Slider values must have minimum 45px width and right alignment to prevent overlapping margins
+4. **Label Brevity**: Keep control labels concise (e.g., "X-Height" instead of "X-Height Offset")
+
+### Spacing Requirements
+1. **Control Row Spacing**: 12px margin-bottom for all control rows
+2. **Section Spacing**: 32px between major sections with dividers
+3. **Subsection Spacing**: 20px for nested subsections (e.g., ribbon under text)
+4. **Button Group Spacing**: 20px margin-bottom for button groups before next section
+5. **Upload Button Spacing**: 12px margin-top, 20px margin-bottom for BG/FG upload buttons
+
+### Control Specifications
+```css
+/* Slider Value Text - REQUIRED PROPERTIES */
+.slider-control-row span {
+    font-size: 12px;
+    min-width: 45px;
+    text-align: right;
+    flex-shrink: 0;
+    white-space: nowrap;
+    margin-right: 0; /* Ensure no margin overflow */
+}
+
+/* Frame Control Text - REQUIRED PROPERTIES */
+.frame-control-row span {
+    font-size: 12px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    margin-right: 0; /* Ensure no margin overflow */
+}
+
+/* Panel Content Container - ENFORCES MARGINS */
+.side-panel {
+    padding: 24px 20px; /* Maintains 20px horizontal margins */
+    width: 260px; /* Fixed panel width */
+    box-sizing: border-box; /* Include padding in width calculations */
+}
+
+/* All Control Elements - MARGIN CONTAINMENT */
+.control-btn, .slider-control-row, .frame-control-row {
+    width: 100%; /* Use full available width within margins */
+    max-width: calc(260px - 40px); /* Never exceed panel width minus margins */
+    box-sizing: border-box;
+}
+```
 
 ## Implementation Guidelines
 
@@ -698,8 +766,8 @@ color: #e5e5e5;
 /* Modal Shadow */
 box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
 
-/* Focus Shadow */
-box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.1);
+/* Focus Shadow - Grayscale */
+box-shadow: 0 0 0 2px rgba(102, 102, 102, 0.15);
 ```
 
 ### Z-Index Scale

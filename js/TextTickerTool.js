@@ -50,9 +50,22 @@ class TextTickerTool {
         this.rotationValue = document.getElementById('rotationValue');
         
         // Animation controls
+        this.animationModeSelect = document.getElementById('animationModeSelect');
+        this.linearAnimationControls = document.getElementById('linearAnimationControls');
+        this.pulseAnimationControls = document.getElementById('pulseAnimationControls');
         this.animationSpeedSlider = document.getElementById('animationSpeedSlider');
         this.animationSpeedValue = document.getElementById('animationSpeedValue');
         this.animationDirectionSelect = document.getElementById('animationDirectionSelect');
+        
+        // Pulse animation controls
+        this.pulseEaseSlider = document.getElementById('pulseEaseSlider');
+        this.pulseEaseValue = document.getElementById('pulseEaseValue');
+        this.pulseDistanceSlider = document.getElementById('pulseDistanceSlider');
+        this.pulseDistanceValue = document.getElementById('pulseDistanceValue');
+        this.pulseTimeSlider = document.getElementById('pulseTimeSlider');
+        this.pulseTimeValue = document.getElementById('pulseTimeValue');
+        this.pulseHoldSlider = document.getElementById('pulseHoldSlider');
+        this.pulseHoldValue = document.getElementById('pulseHoldValue');
         
         // Property groups for dynamic visibility
         this.shapePropertiesSection = document.getElementById('shapePropertiesSection');
@@ -154,11 +167,46 @@ class TextTickerTool {
         this.ribbonColor = "#ff0000";
         
         // Animation properties
+        this.animationMode = "linear";  // "linear" or "pulse"
         this.animationSpeed = 1.0;  // Speed multiplier (0 = stopped, higher = faster)
         this.animationDirection = "clockwise";  // "clockwise" or "counterclockwise"
         this.animationOffset = 0;  // Current animation position along path (degrees, for shapes)
         this.lastAnimationTime = 0;  // For time-based animation
         this.animationFrameId = null;  // For requestAnimationFrame
+        
+        // Pulse animation properties
+        this.pulseConfig = {
+            ease: 0.5,      // 0-1 (subtle to harsh easing)
+            distance: 1.0,   // amplitude multiplier
+            time: 2.0,      // pulse duration (seconds)
+            hold: 0         // hold time between pulses (seconds)
+        };
+        
+        // Pulse animation state
+        this.pulseStartTime = 0;  // When current pulse cycle started
+        this.pulseCycleTime = 0;  // Total cycle time (pulse + hold)
+        this.pulseBaseOffset = 0; // Base offset before pulse modulation
+        
+        // Easing Functions for Pulse Animation - Smooth Progression (No Bounce)
+        this.easingFunctions = {
+            // Linear (no easing)
+            linear: (t) => t,
+            
+            // Sine (subtle, natural curve)
+            easeInOutSine: (t) => -(Math.cos(Math.PI * t) - 1) / 2,
+            
+            // Quadratic (moderate)
+            easeInOutQuad: (t) => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2,
+            
+            // Cubic (strong)
+            easeInOutCubic: (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2,
+            
+            // Quartic (very strong)
+            easeInOutQuart: (t) => t < 0.5 ? 8 * t * t * t * t : 1 - Math.pow(-2 * t + 2, 4) / 2,
+            
+            // Quintic (maximum smooth)
+            easeInOutQuint: (t) => t < 0.5 ? 16 * t * t * t * t * t : 1 - Math.pow(-2 * t + 2, 5) / 2
+        };
         
         // Export properties
         this.preferredExportFormat = 'auto';
@@ -196,12 +244,64 @@ class TextTickerTool {
         this.setupEventListeners();
         this.updatePathModeControls(); // Initialize path mode controls visibility
         this.updateShapeControls(); // Initialize shape controls visibility
+        this.updateAnimationModeControls(); // Initialize animation mode controls visibility
         this.updateSplinePointCount(); // Initialize spline point count
         
         // Handle window resize
         window.addEventListener('resize', () => {
             this.onWindowResize();
         });
+    }
+    
+    // Get easing function based on ease slider value (0-1) - Smooth Progression
+    getEasingFunction(easeValue) {
+        if (easeValue <= 0.2) return this.easingFunctions.linear;
+        if (easeValue <= 0.4) return this.easingFunctions.easeInOutSine;
+        if (easeValue <= 0.6) return this.easingFunctions.easeInOutQuad;
+        if (easeValue <= 0.8) return this.easingFunctions.easeInOutCubic;
+        if (easeValue < 1.0) return this.easingFunctions.easeInOutQuart;
+        return this.easingFunctions.easeInOutQuint;
+    }
+    
+    // Calculate pulse animation offset - Accumulating Forward Motion (No Snap-Back)
+    calculatePulseOffset(currentTime) {
+        const { ease, distance, time, hold } = this.pulseConfig;
+        const totalCycleTime = (time + hold) * 1000; // Convert to milliseconds
+        
+        // Initialize pulse start time if needed
+        if (this.pulseStartTime === 0) {
+            this.pulseStartTime = currentTime;
+        }
+        
+        // Calculate elapsed time and cycle information
+        const elapsedTime = currentTime - this.pulseStartTime;
+        const completedCycles = Math.floor(elapsedTime / totalCycleTime);
+        const cycleProgress = (elapsedTime % totalCycleTime) / totalCycleTime;
+        const pulsePhase = time / (time + hold); // What fraction of cycle is pulse vs hold
+        
+        // Accumulated offset from completed cycles (continuous forward progress)
+        const accumulatedOffset = completedCycles * distance * 360;
+        
+        let currentCycleOffset = 0;
+        
+        if (cycleProgress <= pulsePhase) {
+            // We're in the pulse phase - smooth progression within current cycle
+            const pulseProgress = cycleProgress / pulsePhase; // 0-1 within pulse
+            const easingFunction = this.getEasingFunction(ease);
+            
+            // Create single-direction pulse (0 -> 1) within current cycle
+            const t = pulseProgress;
+            const easedT = easingFunction(t);
+            
+            // Current cycle progress
+            currentCycleOffset = easedT * distance * 360;
+        } else {
+            // We're in the hold phase - stay at end of current cycle (no snap-back)
+            currentCycleOffset = distance * 360;
+        }
+        
+        // Return total accumulated offset (continuous forward motion)
+        return accumulatedOffset + currentCycleOffset;
     }
     
     initFrameContainer() {
@@ -246,25 +346,38 @@ class TextTickerTool {
             };
             
             p.draw = () => {
-                // Update animation offset based on speed and direction
-                if (self.animationSpeed > 0) {
-                    const currentTime = p.millis();
-                    const deltaTime = (currentTime - self.lastAnimationTime) / 1000; // Convert to seconds
-                    
-                    const speedMultiplier = self.animationSpeed;
+                const currentTime = p.millis();
+                
+                if (self.animationMode === "linear") {
+                    // Linear animation - original behavior
+                    if (self.animationSpeed > 0) {
+                        const deltaTime = (currentTime - self.lastAnimationTime) / 1000; // Convert to seconds
+                        
+                        const speedMultiplier = self.animationSpeed;
+                        const directionMultiplier = self.animationDirection === "clockwise" ? 1 : -1;
+                        
+                        const baseDegreesPerSecond = 60;
+                        
+                        const deltaOffset = baseDegreesPerSecond * speedMultiplier * directionMultiplier * deltaTime;
+                        self.animationOffset = (self.animationOffset + deltaOffset) % 360;
+                        
+                        // Ensure positive values for calculations
+                        if (self.animationOffset < 0) {
+                            self.animationOffset += 360;
+                        }
+                        
+                        self.lastAnimationTime = currentTime;
+                    }
+                } else if (self.animationMode === "pulse") {
+                    // Pulse animation - calculate accumulating pulse offset
+                    const pulseOffset = self.calculatePulseOffset(currentTime);
                     const directionMultiplier = self.animationDirection === "clockwise" ? 1 : -1;
                     
-                    const baseDegreesPerSecond = 60;
+                    // Apply pulse offset with direction (no modulo for continuous forward motion)
+                    self.animationOffset = self.pulseBaseOffset + (pulseOffset * directionMultiplier);
                     
-                    const deltaOffset = baseDegreesPerSecond * speedMultiplier * directionMultiplier * deltaTime;
-                    self.animationOffset = (self.animationOffset + deltaOffset) % 360;
-                    
-                    // Ensure positive values for calculations
-                    if (self.animationOffset < 0) {
-                        self.animationOffset += 360;
-                    }
-                    
-                    self.lastAnimationTime = currentTime;
+                    // Note: Removed modulo constraint to allow continuous forward motion
+                    // The offset will accumulate indefinitely, creating seamless forward animation
                 }
                 
                 // Render the current frame
@@ -437,6 +550,17 @@ class TextTickerTool {
         });
         
         // Animation controls
+        this.animationModeSelect.addEventListener('change', () => {
+            this.animationMode = this.animationModeSelect.value;
+            this.updateAnimationModeControls();
+            
+            // Reset pulse animation state when switching modes
+            if (this.animationMode === "pulse") {
+                this.pulseStartTime = 0;
+                this.pulseBaseOffset = this.animationOffset;
+            }
+        });
+        
         this.animationSpeedSlider.addEventListener('input', () => {
             this.animationSpeed = parseFloat(this.animationSpeedSlider.value);
             this.animationSpeedValue.textContent = this.animationSpeed.toFixed(1) + 'x';
@@ -444,6 +568,29 @@ class TextTickerTool {
         
         this.animationDirectionSelect.addEventListener('change', () => {
             this.animationDirection = this.animationDirectionSelect.value;
+        });
+        
+        // Pulse animation controls
+        this.pulseEaseSlider.addEventListener('input', () => {
+            this.pulseConfig.ease = parseFloat(this.pulseEaseSlider.value);
+            this.pulseEaseValue.textContent = this.pulseConfig.ease.toFixed(1);
+        });
+        
+        this.pulseDistanceSlider.addEventListener('input', () => {
+            this.pulseConfig.distance = parseFloat(this.pulseDistanceSlider.value);
+            this.pulseDistanceValue.textContent = this.pulseConfig.distance.toFixed(1) + 'x';
+        });
+        
+        this.pulseTimeSlider.addEventListener('input', () => {
+            this.pulseConfig.time = parseFloat(this.pulseTimeSlider.value);
+            this.pulseTimeValue.textContent = this.pulseConfig.time.toFixed(1) + 's';
+            this.pulseStartTime = 0; // Reset pulse timing when time changes
+        });
+        
+        this.pulseHoldSlider.addEventListener('input', () => {
+            this.pulseConfig.hold = parseFloat(this.pulseHoldSlider.value);
+            this.pulseHoldValue.textContent = this.pulseConfig.hold.toFixed(1) + 's';
+            this.pulseStartTime = 0; // Reset pulse timing when hold changes
         });
         
         // Text Ribbon controls
@@ -720,6 +867,17 @@ class TextTickerTool {
         } else if (this.currentPathMode === "spline") {
             this.shapePropertiesSection.style.display = 'none';
             this.splinePropertiesSection.style.display = 'block';
+        }
+    }
+    
+    updateAnimationModeControls() {
+        // Show/hide animation mode controls based on selected mode
+        if (this.animationMode === "linear") {
+            this.linearAnimationControls.style.display = 'block';
+            this.pulseAnimationControls.style.display = 'none';
+        } else if (this.animationMode === "pulse") {
+            this.linearAnimationControls.style.display = 'none';
+            this.pulseAnimationControls.style.display = 'block';
         }
     }
     

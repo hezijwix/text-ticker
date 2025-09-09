@@ -1,10 +1,12 @@
 /* Toggle Switches and Interactive States */
 
-/* Toggle Switch Styles */
+/* Toggle Switch Styles - Panel Constraint Enforcement */
 .toggle-switch {
     display: flex;
     align-items: center;
     flex: 1;
+    max-width: var(--panel-content-width);         /* 220px max width */
+    box-sizing: border-box;
 }
 
 .toggle-checkbox {

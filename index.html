@@ -35,8 +35,9 @@
                 </button>
             </div>
             
-            <div class="controls-section">
-                <h4>Text Content</h4>
+            <!-- TEXT SECTION -->
+            <div class="controls-section section-with-divider">
+                <h4>Text</h4>
                 <div class="text-input-container">
                     <textarea id="textInput" placeholder="Enter your text here..." rows="3" class="text-input-box">Sample Text</textarea>
                 </div>
@@ -70,26 +71,37 @@
                     </div>
                     
                     <div class="font-xheight-row">
-                        <label for="xHeightSlider">X-Height Offset:</label>
+                        <label for="xHeightSlider">X-Height:</label>
                         <input type="range" id="xHeightSlider" min="-20" max="20" step="0.5" value="2" class="control-slider">
                         <span id="xHeightValue">2</span>
                     </div>
-                    
-                    <!-- Developer Option: Modular Architecture Toggle -->
-                    <div class="font-debug-row" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #444;">
-                        <label for="modularArchToggle" style="font-size: 12px; color: #888;">🔧 Dev Mode - Modular Architecture:</label>
-                        <div class="toggle-container">
-                            <input type="checkbox" id="modularArchToggle" class="toggle-checkbox">
-                            <label for="modularArchToggle" class="toggle-label">
-                                <span class="toggle-inner"></span>
-                                <span class="toggle-text">Off</span>
-                            </label>
-                        </div>
+                </div>
+
+                <!-- Text Ribbon Sub-section -->
+                <div class="ribbon-subsection">
+                    <div class="preset-control-row">
+                        <label for="ribbonModeSelect">Ribbon Mode:</label>
+                        <select id="ribbonModeSelect" class="preset-select">
+                            <option value="off">Off</option>
+                            <option value="character" selected>Character Borders</option>
+                            <option value="shapePath">Shape Path</option>
+                            <option value="wordsBound">Words Bound</option>
+                        </select>
+                    </div>
+                    <div class="slider-control-row">
+                        <label for="ribbonWidthSlider">Border Width:</label>
+                        <input type="range" id="ribbonWidthSlider" min="0.1" max="2.0" step="0.1" value="0.25" class="control-slider">
+                        <span id="ribbonWidthValue">0.25x</span>
+                    </div>
+                    <div class="color-control-row">
+                        <label for="ribbonColorPicker">Border Color:</label>
+                        <input type="color" id="ribbonColorPicker" value="#ff0000" class="color-picker">
                     </div>
                 </div>
             </div>
 
-            <div class="controls-section">
+            <!-- PATH MODE SECTION -->
+            <div class="controls-section section-with-divider">
                 <h4>Path Mode</h4>
                 <div class="preset-control-row">
                     <label for="pathModeSelect">Mode:</label>
@@ -98,101 +110,137 @@
                         <option value="spline">Spline</option>
                     </select>
                 </div>
-            </div>
 
-            <!-- Shape Properties Section -->
-            <div class="controls-section" id="shapePropertiesSection">
-                <h4>Shape Properties</h4>
-                
-                <!-- Shape Type Selector -->
-                <div class="preset-control-row">
-                    <label for="shapeTypeSelect">Shape:</label>
-                    <select id="shapeTypeSelect" class="preset-select">
-                        <option value="circle">Circle</option>
-                        <option value="rectangle">Rectangle</option>
-                    </select>
-                </div>
-                
-                <!-- Circle Properties -->
-                <div id="circleProperties" class="shape-properties-group">
+                <!-- Shape Properties -->
+                <div id="shapePropertiesSection" class="path-properties-group">
+                    <!-- Shape Type Selector -->
+                    <div class="preset-control-row">
+                        <label for="shapeTypeSelect">Shape:</label>
+                        <select id="shapeTypeSelect" class="preset-select">
+                            <option value="circle">Circle</option>
+                            <option value="rectangle">Rectangle</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Circle Properties -->
+                    <div id="circleProperties" class="shape-properties-group">
+                        <div class="slider-control-row">
+                            <label for="radiusSlider">Radius:</label>
+                            <input type="range" id="radiusSlider" min="50" max="300" step="10" value="150" class="control-slider">
+                            <span id="radiusValue">150</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Rectangle Properties -->
+                    <div id="rectangleProperties" class="shape-properties-group" style="display: none;">
+                        <div class="slider-control-row">
+                            <label for="rectWidthSlider">Width:</label>
+                            <input type="range" id="rectWidthSlider" min="100" max="400" step="10" value="300" class="control-slider">
+                            <span id="rectWidthValue">300</span>
+                        </div>
+                        <div class="slider-control-row">
+                            <label for="rectHeightSlider">Height:</label>
+                            <input type="range" id="rectHeightSlider" min="80" max="300" step="10" value="200" class="control-slider">
+                            <span id="rectHeightValue">200</span>
+                        </div>
+                        <div class="slider-control-row">
+                            <label for="rectCornerSlider">Corner Radius:</label>
+                            <input type="range" id="rectCornerSlider" min="0" max="50" step="2" value="0" class="control-slider">
+                            <span id="rectCornerValue">0</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Common Rotation Control -->
                     <div class="slider-control-row">
-                        <label for="radiusSlider">Radius:</label>
-                        <input type="range" id="radiusSlider" min="50" max="300" step="10" value="150" class="control-slider">
-                        <span id="radiusValue">150</span>
+                        <label for="rotationSlider">Rotation:</label>
+                        <input type="range" id="rotationSlider" min="0" max="360" step="1" value="0" class="control-slider">
+                        <span id="rotationValue">0°</span>
                     </div>
                 </div>
-                
-                <!-- Rectangle Properties -->
-                <div id="rectangleProperties" class="shape-properties-group" style="display: none;">
-                    <div class="slider-control-row">
-                        <label for="rectWidthSlider">Width:</label>
-                        <input type="range" id="rectWidthSlider" min="100" max="400" step="10" value="300" class="control-slider">
-                        <span id="rectWidthValue">300</span>
-                    </div>
-                    <div class="slider-control-row">
-                        <label for="rectHeightSlider">Height:</label>
-                        <input type="range" id="rectHeightSlider" min="80" max="300" step="10" value="200" class="control-slider">
-                        <span id="rectHeightValue">200</span>
-                    </div>
-                    <div class="slider-control-row">
-                        <label for="rectCornerSlider">Corner Radius:</label>
-                        <input type="range" id="rectCornerSlider" min="0" max="50" step="2" value="0" class="control-slider">
-                        <span id="rectCornerValue">0</span>
-                    </div>
-                </div>
-                
-                <!-- Common Rotation Control -->
-                <div class="slider-control-row">
-                    <label for="rotationSlider">Rotation:</label>
-                    <input type="range" id="rotationSlider" min="0" max="360" step="1" value="0" class="control-slider">
-                    <span id="rotationValue">0°</span>
-                </div>
-            </div>
 
-            <!-- Spline Properties Section -->
-            <div class="controls-section" id="splinePropertiesSection" style="display: none;">
-                <h4>Spline Properties</h4>
-                
-                <!-- Curve Type Toggle -->
-                <div class="preset-control-row">
-                    <label for="curveTypeSelect">Curve Type:</label>
-                    <select id="curveTypeSelect" class="preset-select">
-                        <option value="linear">Linear</option>
-                        <option value="curved">Curved</option>
-                    </select>
-                </div>
-                
-                <!-- Guide Visibility Toggle -->
-                <div class="preset-control-row">
-                    <label for="showGuidesCheckbox">Show Guides:</label>
-                    <div class="toggle-switch">
-                        <input type="checkbox" id="showGuidesCheckbox" class="toggle-checkbox" checked>
-                        <label for="showGuidesCheckbox" class="toggle-label">
-                            <span class="toggle-slider"></span>
-                            <span class="toggle-text">ON</span>
-                        </label>
+                <!-- Spline Properties -->
+                <div id="splinePropertiesSection" class="path-properties-group" style="display: none;">
+                    <!-- Curve Type Toggle -->
+                    <div class="preset-control-row">
+                        <label for="curveTypeSelect">Curve Type:</label>
+                        <select id="curveTypeSelect" class="preset-select">
+                            <option value="linear">Linear</option>
+                            <option value="curved">Curved</option>
+                        </select>
                     </div>
-                </div>
-                
-                <!-- Point Management -->
-                <div class="preset-control-row">
-                    <button class="control-btn" id="clearSplineBtn">Clear All Points</button>
-                </div>
-                
-                <!-- Path Status -->
-                <div class="preset-control-row">
-                    <label>Points:</label>
-                    <span id="splinePointCount">0</span>
+                    
+                    <!-- Guide Visibility Toggle -->
+                    <div class="preset-control-row">
+                        <label for="showGuidesCheckbox">Show Guides:</label>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="showGuidesCheckbox" class="toggle-checkbox" checked>
+                            <label for="showGuidesCheckbox" class="toggle-label">
+                                <span class="toggle-slider"></span>
+                                <span class="toggle-text">ON</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Point Management -->
+                    <div class="preset-control-row">
+                        <button class="control-btn" id="clearSplineBtn">Clear All Points</button>
+                    </div>
+                    
+                    <!-- Path Status -->
+                    <div class="preset-control-row">
+                        <label>Points:</label>
+                        <span id="splinePointCount">0</span>
+                    </div>
                 </div>
             </div>
 
-            <div class="controls-section">
+            <!-- ANIMATION SECTION -->
+            <div class="controls-section section-with-divider">
                 <h4>Animation</h4>
-                <div class="slider-control-row">
-                    <label for="animationSpeedSlider">Animation Speed:</label>
-                    <input type="range" id="animationSpeedSlider" min="0" max="5.0" step="0.1" value="1.0" class="control-slider">
-                    <span id="animationSpeedValue">1.0x</span>
+                
+                <!-- Animation Mode Selection -->
+                <div class="preset-control-row">
+                    <label for="animationModeSelect">Mode:</label>
+                    <select id="animationModeSelect" class="preset-select">
+                        <option value="linear">Linear</option>
+                        <option value="pulse">Pulse</option>
+                    </select>
                 </div>
+                
+                <!-- Linear Mode Controls -->
+                <div id="linearAnimationControls" class="animation-mode-controls">
+                    <div class="slider-control-row">
+                        <label for="animationSpeedSlider">Animation Speed:</label>
+                        <input type="range" id="animationSpeedSlider" min="0" max="5.0" step="0.1" value="1.0" class="control-slider">
+                        <span id="animationSpeedValue">1.0x</span>
+                    </div>
+                </div>
+                
+                <!-- Pulse Mode Controls -->
+                <div id="pulseAnimationControls" class="animation-mode-controls" style="display: none;">
+                    <div class="slider-control-row">
+                        <label for="pulseEaseSlider">Ease:</label>
+                        <input type="range" id="pulseEaseSlider" min="0" max="1.0" step="0.1" value="0.5" class="control-slider">
+                        <span id="pulseEaseValue">0.5</span>
+                    </div>
+                    <div class="slider-control-row">
+                        <label for="pulseDistanceSlider">Distance:</label>
+                        <input type="range" id="pulseDistanceSlider" min="0.1" max="1.0" step="0.1" value="1.0" class="control-slider">
+                        <span id="pulseDistanceValue">1.0x</span>
+                    </div>
+                    <div class="slider-control-row">
+                        <label for="pulseTimeSlider">Time (s):</label>
+                        <input type="range" id="pulseTimeSlider" min="0.5" max="5.0" step="0.1" value="2.0" class="control-slider">
+                        <span id="pulseTimeValue">2.0s</span>
+                    </div>
+                    <div class="slider-control-row">
+                        <label for="pulseHoldSlider">Hold (s):</label>
+                        <input type="range" id="pulseHoldSlider" min="0" max="2.0" step="0.1" value="0" class="control-slider">
+                        <span id="pulseHoldValue">0s</span>
+                    </div>
+                </div>
+                
+                <!-- Common Direction Control -->
                 <div class="preset-control-row">
                     <label for="animationDirectionSelect">Direction:</label>
                     <select id="animationDirectionSelect" class="preset-select">
@@ -202,32 +250,13 @@
                 </div>
             </div>
 
-            <div class="controls-section">
-                <h4>Text Ribbon</h4>
-                <div class="preset-control-row">
-                    <label for="ribbonModeSelect">Ribbon Mode:</label>
-                    <select id="ribbonModeSelect" class="preset-select">
-                        <option value="off">Off</option>
-                        <option value="character" selected>Character Borders</option>
-                        <option value="shapePath">Shape Path</option>
-                        <option value="wordsBound">Words Bound</option>
-                    </select>
-                </div>
-                <div class="slider-control-row">
-                    <label for="ribbonWidthSlider">Border Width:</label>
-                    <input type="range" id="ribbonWidthSlider" min="0.1" max="2.0" step="0.1" value="0.25" class="control-slider">
-                    <span id="ribbonWidthValue">0.25x</span>
-                </div>
+            <!-- CANVAS SECTION -->
+            <div class="controls-section section-with-divider">
+                <h4>Canvas</h4>
+                
+                <!-- Background Color -->
                 <div class="color-control-row">
-                    <label for="ribbonColorPicker">Border Color:</label>
-                    <input type="color" id="ribbonColorPicker" value="#ff0000" class="color-picker">
-                </div>
-            </div>
-
-            <div class="controls-section">
-                <h4>Background Color</h4>
-                <div class="color-control-row">
-                    <label for="backgroundColorPicker">Color:</label>
+                    <label for="backgroundColorPicker">Background Color:</label>
                      <input type="color" id="backgroundColorPicker" value="#121212" class="color-picker">
                      <!-- Alpha background toggle -->
                      <div class="toggle-switch" id="alphaBackgroundToggle" style="margin-left: 12px;">
@@ -238,6 +267,7 @@
                          </label>
                      </div>
                 </div>
+                
                 <!-- Background & Foreground Image Upload -->
                 <div class="bg-image-row">
                     <div class="bg-upload-button" id="bgUploadButton" title="Upload background image">
@@ -251,31 +281,27 @@
                     </div>
                     <input type="file" id="fgImageInput" accept="image/*" style="display: none;">
                 </div>
-            </div>
 
-            <div class="controls-section">
-                <h4>Frame Size</h4>
+                <!-- Frame Size -->
                 <div class="frame-control-row">
-                    <label for="frameWidth">Width:</label>
+                    <label for="frameWidth">Frame Width:</label>
                     <input type="text" id="frameWidth" value="800" class="size-input">
                     <span>px</span>
                 </div>
                 <div class="frame-control-row">
-                    <label for="frameHeight">Height:</label>
+                    <label for="frameHeight">Frame Height:</label>
                     <input type="text" id="frameHeight" value="600" class="size-input">
                     <span>px</span>
                 </div>
                 <button class="control-btn" id="applySizeBtn">Apply Size</button>
-            </div>
 
-            <div class="controls-section">
-                <h4>Preview Zoom</h4>
+                <!-- Preview Zoom -->
                 <div class="slider-control-row">
-                    <label for="zoomSlider">Zoom:</label>
-                    <input type="range" id="zoomSlider" min="0.25" max="2.0" step="0.05" value="1.0" class="slider">
-                    <span id="zoomValue" class="value">100%</span>
+                    <label for="zoomSlider">Preview Zoom:</label>
+                    <input type="range" id="zoomSlider" min="0.25" max="2.0" step="0.05" value="1.0" class="control-slider">
+                    <span id="zoomValue">100%</span>
                 </div>
-                <button class="control-btn" id="resetZoomBtn">Reset Zoom</button>
+                <button class="control-btn" id="resetZoomBtn" style="margin-top: 20px;">Reset Zoom</button>
             </div>
 
 

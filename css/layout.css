@@ -110,6 +110,30 @@ body {
     text-transform: uppercase;
 }
 
+/* Section Dividers */
+.section-with-divider:not(:first-child) {
+    border-top: 1px solid var(--border-color-subtle);
+    padding-top: 32px;
+    margin-top: 0;
+}
+
+/* First section should have proper spacing */
+.section-with-divider:first-child {
+    margin-top: 0;
+}
+
+/* Ribbon Subsection Styling */
+.ribbon-subsection {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color-subtle);
+}
+
+/* Path Properties Group Styling */
+.path-properties-group {
+    margin-top: 16px;
+}
+
 /* Content Area */
 .content-area {
     flex: 1;

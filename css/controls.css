@@ -1,11 +1,14 @@
 /* Form Controls and Interactive Elements */
 
-/* Frame Control Row */
+/* Frame Control Row - Panel Constraint Enforcement */
 .frame-control-row {
     display: flex;
     align-items: center;
     margin-bottom: 12px;
     font-size: 12px;
+    width: 100%;
+    max-width: var(--panel-content-width);         /* 220px max width */
+    box-sizing: border-box;
 }
 
 .frame-control-row label {
@@ -19,8 +22,10 @@
 
 .frame-control-row span {
     color: var(--text-color-light);
-    font-size: 11px;
+    font-size: 12px;
     margin-left: 8px;
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .color-control-row {
@@ -28,6 +33,9 @@
     align-items: center;
     margin-bottom: 12px;
     font-size: 12px;
+    width: 100%;
+    max-width: var(--panel-content-width);         /* 220px max width */
+    box-sizing: border-box;
 }
 
 .color-control-row label {
@@ -55,14 +63,15 @@
 
 .color-picker:focus {
     outline: none;
-    border-color: var(--button-primary);
+    border-color: var(--focus-color);              /* #666 - grayscale focus */
+    box-shadow: 0 0 0 2px var(--focus-shadow);     /* Grayscale focus shadow */
 }
 
-/* Buttons */
+/* Buttons - Always Dark Theme */
 .control-btn {
-    background-color: var(--button-primary);
-    color: var(--bg-primary);
-    border: none;
+    background-color: var(--button-primary);        /* #1a1a1a - dark background */
+    color: var(--button-primary-text);             /* #e5e5e5 - light text */
+    border: 1px solid var(--button-subtle-border); /* Border for definition */
     padding: 8px 16px;
     border-radius: 2px;
     cursor: pointer;
@@ -73,21 +82,26 @@
     transition: all 0.15s ease;
     outline: none;
     width: 100%;
-    margin-top: 8px;
+    max-width: var(--panel-content-width);         /* Enforce panel width constraint */
+    margin-top: 12px;
+    box-sizing: border-box;
 }
 
 .control-btn:hover {
-    background-color: var(--button-hover);
+    background-color: var(--button-hover);          /* #222 - darker on hover */
+    border-color: #333;
 }
 
 .export-btn {
-    background-color: #0066cc;
-    color: white;
+    background-color: var(--export-primary);       /* #333333 - dark gray */
+    color: var(--text-color-bright);               /* #fff - white text */
+    border: 1px solid #444;
     font-weight: 500;
 }
 
 .export-btn:hover {
-    background-color: #0052a3;
+    background-color: var(--export-hover);         /* #444444 - lighter gray */
+    border-color: #555;
 }
 
 .export-btn:disabled {
@@ -111,8 +125,14 @@
 }
 
 .size-input:focus {
-    border-color: #333;
+    border-color: var(--focus-color);              /* #666 - grayscale focus */
     background-color: var(--button-subtle-hover);
+    box-shadow: 0 0 0 2px var(--focus-shadow);     /* Grayscale focus shadow */
+}
+
+/* Text Input Container */
+.text-input-container {
+    margin-bottom: 12px;
 }
 
 /* Text Input Box */
@@ -133,8 +153,9 @@
 }
 
 .text-input-box:focus {
-    border-color: #333;
+    border-color: var(--focus-color);              /* #666 - grayscale focus */
     background-color: var(--button-subtle-hover);
+    box-shadow: 0 0 0 2px var(--focus-shadow);     /* Grayscale focus shadow */
 }
 
 .text-input-box::placeholder {
@@ -146,19 +167,23 @@
     margin-top: 12px;
 }
 
-.font-family-row, .font-weight-row {
+.font-family-row, .font-weight-row, .font-size-row, .text-color-row, .font-xheight-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    margin-bottom: 8px;
+    margin-bottom: 12px;
+    width: 100%;
+    max-width: var(--panel-content-width);         /* 220px max width */
+    box-sizing: border-box;
 }
 
-.font-family-row label, .font-weight-row label {
+.font-family-row label, .font-weight-row label, .font-size-row label, .text-color-row label, .font-xheight-row label {
     color: var(--text-color);
     font-size: 11px;
     font-weight: 500;
-    min-width: 80px;
+    min-width: 85px;
+    flex-shrink: 0;
 }
+
 
 .font-family-select {
     background-color: var(--button-subtle);
@@ -173,59 +198,70 @@
 }
 
 .font-family-select:focus {
-    border-color: #333;
+    border-color: var(--focus-color);              /* #666 - grayscale focus */
     background-color: var(--button-subtle-hover);
+    box-shadow: 0 0 0 2px var(--focus-shadow);     /* Grayscale focus shadow */
 }
 
 .font-family-select:hover {
     border-color: #333;
 }
 
-.font-weight-row {
-    margin-top: 10px;
-}
 
 .font-weight-row .control-slider {
-    width: 100px;
+    flex: 1;
+    max-width: calc(100% - 120px); /* Consistent with other sliders */
     margin: 0 8px;
 }
 
-.font-weight-row span {
-    color: var(--text-color);
-    font-size: 11px;
-    font-weight: 500;
-    min-width: 30px;
-    text-align: center;
+.font-weight-row span, .font-size-row span, .font-xheight-row span {
+    color: var(--text-color-light);
+    font-size: 12px;
+    font-weight: 400;
+    min-width: 50px;
+    text-align: left;
+    flex-shrink: 0;
+    white-space: nowrap;
+    margin-left: 8px;
+    margin-right: 0;
 }
 
-/* Slider Control Row */
+/* Slider Control Row - Panel Constraint Enforcement */
 .slider-control-row {
     display: flex;
     align-items: center;
     margin-bottom: 12px;
     font-size: 12px;
+    width: 100%;
+    max-width: var(--panel-content-width);         /* 220px max width */
+    box-sizing: border-box;
 }
 
 .slider-control-row label {
-    min-width: 80px;
+    min-width: 85px;
     color: var(--text-color);
     font-weight: 400;
     text-transform: none;
     letter-spacing: 0;
     margin-right: 8px;
+    flex-shrink: 0;
 }
 
 .slider-control-row span {
     color: var(--text-color-light);
-    font-size: 11px;
+    font-size: 12px;
     margin-left: 8px;
-    min-width: 40px;
-    text-align: right;
+    margin-right: 0;
+    min-width: 50px;
+    text-align: left;
+    flex-shrink: 0;
+    white-space: nowrap;                           /* Prevent text wrapping */
 }
 
 /* Control Slider */
 .control-slider {
     flex: 1;
+    max-width: calc(100% - 120px); /* Reserve space for label and value */
     height: 4px;
     background: var(--button-subtle);
     border-radius: 2px;
@@ -239,21 +275,21 @@
     appearance: none;
     width: 14px;
     height: 14px;
-    background: var(--button-primary);
+    background: var(--text-color);                 /* #e5e5e5 - light thumb on dark */
     border-radius: 50%;
     cursor: pointer;
     transition: all 0.15s ease;
 }
 
 .control-slider::-webkit-slider-thumb:hover {
-    background: var(--button-hover);
+    background: var(--text-color-bright);          /* #fff - brighter on hover */
     transform: scale(1.1);
 }
 
 .control-slider::-moz-range-thumb {
     width: 14px;
     height: 14px;
-    background: var(--button-primary);
+    background: var(--text-color);                 /* #e5e5e5 - light thumb on dark */
     border-radius: 50%;
     border: none;
     cursor: pointer;
@@ -261,7 +297,7 @@
 }
 
 .control-slider::-moz-range-thumb:hover {
-    background: var(--button-hover);
+    background: var(--text-color-bright);          /* #fff - brighter on hover */
     transform: scale(1.1);
 }
 
@@ -272,12 +308,15 @@
     border: none;
 }
 
-/* Preset Control Row */
+/* Preset Control Row - Panel Constraint Enforcement */
 .preset-control-row {
     display: flex;
     align-items: center;
     margin-bottom: 12px;
     font-size: 12px;
+    width: 100%;
+    max-width: var(--panel-content-width);         /* 220px max width */
+    box-sizing: border-box;
 }
 
 .preset-control-row label {
@@ -310,8 +349,9 @@
 }
 
 .preset-select:focus {
-    border-color: #333;
+    border-color: var(--focus-color);              /* #666 - grayscale focus */
     background-color: var(--button-subtle-hover);
+    box-shadow: 0 0 0 2px var(--focus-shadow);     /* Grayscale focus shadow */
 }
 
 .preset-select:hover {
@@ -339,8 +379,9 @@
 }
 
 .seed-input:focus {
-    border-color: #333;
+    border-color: var(--focus-color);              /* #666 - grayscale focus */
     background-color: var(--button-subtle-hover);
+    box-shadow: 0 0 0 2px var(--focus-shadow);     /* Grayscale focus shadow */
 }
 
 .seed-btn {
@@ -426,7 +467,8 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-top: 10px;
+    margin-top: 12px;
+    margin-bottom: 20px;
 }
 
 .bg-upload-button {
@@ -735,4 +777,36 @@
     to {
         opacity: 0.8;
     }
+}
+
+/* Animation Mode Controls */
+.animation-mode-controls {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-color);
+    transition: all 0.2s ease;
+}
+
+.animation-mode-controls:first-of-type {
+    border-top: none;
+    padding-top: 0;
+}
+
+.animation-mode-controls .slider-control-row {
+    margin-bottom: 8px;
+}
+
+.animation-mode-controls .slider-control-row:last-child {
+    margin-bottom: 0;
+}
+
+/* Smooth transitions for mode switching */
+.animation-mode-controls[style*="display: none"] {
+    opacity: 0;
+    transform: translateY(-10px);
+}
+
+.animation-mode-controls:not([style*="display: none"]) {
+    opacity: 1;
+    transform: translateY(0);
 }
