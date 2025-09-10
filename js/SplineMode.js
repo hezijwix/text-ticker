@@ -958,33 +958,47 @@ class SplineMode {
         const centerY = canvas.height / 2;
         ctx.translate(-centerX, -centerY);
         
-        ctx.beginPath();
-        
-        if (this.tool.curveType === "linear") {
-            // Draw straight lines between points
-            ctx.moveTo(this.tool.splinePoints[0].x, this.tool.splinePoints[0].y);
-            for (let i = 1; i < this.tool.splinePoints.length; i++) {
-                ctx.lineTo(this.tool.splinePoints[i].x, this.tool.splinePoints[i].y);
-            }
-        } else {
-            // Draw curved path by sampling the curve
-            const samples = 100;
-            let firstPoint = true;
+        // Helper function to draw the spline path
+        const drawSplinePath = () => {
+            ctx.beginPath();
             
-            for (let i = 0; i <= samples; i++) {
-                const t = i / samples;
-                const point = this.getCurvedPointAt(t);
-                if (point) {
-                    if (firstPoint) {
-                        ctx.moveTo(point.x, point.y);
-                        firstPoint = false;
-                    } else {
-                        ctx.lineTo(point.x, point.y);
+            if (this.tool.curveType === "linear") {
+                // Draw straight lines between points
+                ctx.moveTo(this.tool.splinePoints[0].x, this.tool.splinePoints[0].y);
+                for (let i = 1; i < this.tool.splinePoints.length; i++) {
+                    ctx.lineTo(this.tool.splinePoints[i].x, this.tool.splinePoints[i].y);
+                }
+            } else {
+                // Draw curved path by sampling the curve
+                const samples = 100;
+                let firstPoint = true;
+                
+                for (let i = 0; i <= samples; i++) {
+                    const t = i / samples;
+                    const point = this.getCurvedPointAt(t);
+                    if (point) {
+                        if (firstPoint) {
+                            ctx.moveTo(point.x, point.y);
+                            firstPoint = false;
+                        } else {
+                            ctx.lineTo(point.x, point.y);
+                        }
                     }
                 }
             }
+        };
+        
+        // Draw stroke outline first (if enabled) so it appears behind the path
+        if (this.tool.strokeWidth > 0) {
+            drawSplinePath();
+            ctx.strokeStyle = this.tool.strokeColor;
+            ctx.lineWidth = ctx.lineWidth + (this.tool.strokeWidth * 2);
+            ctx.stroke();
         }
         
+        // Draw main path outline on top
+        drawSplinePath();
+        ctx.strokeStyle = this.tool.ribbonColor;
         ctx.stroke();
         
         // Restore coordinate system
@@ -1002,13 +1016,20 @@ class SplineMode {
         const centerY = canvas.height / 2;
         ctx.translate(-centerX, -centerY);
         
-        // Set stroke properties for spline ribbon
-        ctx.lineWidth = ribbonHeight;
+        // Set common stroke properties
         ctx.lineCap = this.tool.boundsType === 'round' ? 'round' : 'square';
         ctx.lineJoin = this.tool.boundsType === 'round' ? 'round' : 'miter';
         
-        // Draw single continuous segment from startDistance to endDistance
-        // Note: The caller handles word splitting for wrapped segments
+        // Draw stroke outline first (if enabled) so it appears behind the ribbon
+        if (this.tool.strokeWidth > 0) {
+            ctx.strokeStyle = this.tool.strokeColor;
+            ctx.lineWidth = ribbonHeight + (this.tool.strokeWidth * 2);
+            this.drawSplineSegment(ctx, startDistance, endDistance, pathLength, true);
+        }
+        
+        // Draw spline ribbon segment on top
+        ctx.strokeStyle = this.tool.ribbonColor;
+        ctx.lineWidth = ribbonHeight;
         this.drawSplineSegment(ctx, startDistance, endDistance, pathLength, true);
         
         // Restore coordinate system

@@ -425,8 +425,19 @@ class ShapeMode {
     drawCirclePathRibbon(ctx) {
         const radius = this.tool.shapeParameters.circle.radius;
         
+        // Draw stroke outline first (if enabled) so it appears behind the path
+        if (this.tool.strokeWidth > 0) {
+            ctx.beginPath();
+            ctx.arc(0, 0, radius, 0, 2 * Math.PI);
+            ctx.strokeStyle = this.tool.strokeColor;
+            ctx.lineWidth = ctx.lineWidth + (this.tool.strokeWidth * 2);
+            ctx.stroke();
+        }
+        
+        // Draw main path outline on top
         ctx.beginPath();
         ctx.arc(0, 0, radius, 0, 2 * Math.PI);
+        ctx.strokeStyle = this.tool.ribbonColor;
         ctx.stroke();
     }
     
@@ -436,15 +447,29 @@ class ShapeMode {
         const height = this.tool.shapeParameters.rectangle.height;
         const cornerRadius = this.tool.shapeParameters.rectangle.cornerRadius;
         
-        ctx.beginPath();
+        // Draw stroke outline first (if enabled) so it appears behind the path
+        if (this.tool.strokeWidth > 0) {
+            ctx.beginPath();
+            // Use roundRect if available, fallback to regular rect
+            if (typeof ctx.roundRect === 'function' && cornerRadius > 0) {
+                ctx.roundRect(-width/2, -height/2, width, height, cornerRadius);
+            } else {
+                ctx.rect(-width/2, -height/2, width, height);
+            }
+            ctx.strokeStyle = this.tool.strokeColor;
+            ctx.lineWidth = ctx.lineWidth + (this.tool.strokeWidth * 2);
+            ctx.stroke();
+        }
         
+        // Draw main path outline on top
+        ctx.beginPath();
         // Use roundRect if available, fallback to regular rect
         if (typeof ctx.roundRect === 'function' && cornerRadius > 0) {
             ctx.roundRect(-width/2, -height/2, width, height, cornerRadius);
         } else {
             ctx.rect(-width/2, -height/2, width, height);
         }
-        
+        ctx.strokeStyle = this.tool.ribbonColor;
         ctx.stroke();
     }
     
@@ -456,14 +481,24 @@ class ShapeMode {
         const startAngle = centerAngle - angleSpan / 2;
         const endAngle = centerAngle + angleSpan / 2;
         
-        // Set stroke properties for curved ribbon
-        ctx.lineWidth = ribbonHeight;
+        // Set common stroke properties
         ctx.lineCap = this.tool.boundsType === 'round' ? 'round' : 'square';
         ctx.lineJoin = this.tool.boundsType === 'round' ? 'round' : 'miter';
         
-        // Draw curved ribbon arc segment for this word
+        // Draw stroke outline first (if enabled) so it appears behind the ribbon
+        if (this.tool.strokeWidth > 0) {
+            ctx.beginPath();
+            ctx.arc(0, 0, radius, startAngle, endAngle);
+            ctx.strokeStyle = this.tool.strokeColor;
+            ctx.lineWidth = ribbonHeight + (this.tool.strokeWidth * 2);
+            ctx.stroke();
+        }
+        
+        // Draw curved ribbon arc segment for this word on top
         ctx.beginPath();
         ctx.arc(0, 0, radius, startAngle, endAngle);
+        ctx.strokeStyle = this.tool.ribbonColor;
+        ctx.lineWidth = ribbonHeight;
         ctx.stroke();
         
         ctx.restore();
@@ -478,29 +513,47 @@ class ShapeMode {
             wordDistance += perimeter;
         }
         
-        // Set stroke properties for path ribbon
-        ctx.lineWidth = ribbonHeight;
+        // Set common stroke properties
         ctx.lineCap = this.tool.boundsType === 'round' ? 'round' : 'square';
         ctx.lineJoin = this.tool.boundsType === 'round' ? 'round' : 'miter';
         
-        // Draw path segment along rectangle perimeter for this word
-        ctx.beginPath();
-        
-        // Sample points along the word's portion of the rectangle path
+        // Create path points for reuse
         const pathResolution = Math.max(10, Math.ceil(wordDistance / 5)); // Sample every ~5 units or at least 10 points
+        const pathPoints = [];
         
         for (let i = 0; i <= pathResolution; i++) {
             const progress = i / pathResolution;
             const currentDistance = (startDistance + wordDistance * progress) % perimeter;
             const point = pathCalculator(currentDistance, width, height, cornerRadius);
-            
+            pathPoints.push(point);
+        }
+        
+        // Draw stroke outline first (if enabled) so it appears behind the ribbon
+        if (this.tool.strokeWidth > 0) {
+            ctx.beginPath();
+            pathPoints.forEach((point, i) => {
+                if (i === 0) {
+                    ctx.moveTo(point.x, point.y);
+                } else {
+                    ctx.lineTo(point.x, point.y);
+                }
+            });
+            ctx.strokeStyle = this.tool.strokeColor;
+            ctx.lineWidth = ribbonHeight + (this.tool.strokeWidth * 2);
+            ctx.stroke();
+        }
+        
+        // Draw path ribbon segment on top
+        ctx.beginPath();
+        pathPoints.forEach((point, i) => {
             if (i === 0) {
                 ctx.moveTo(point.x, point.y);
             } else {
                 ctx.lineTo(point.x, point.y);
             }
-        }
-        
+        });
+        ctx.strokeStyle = this.tool.ribbonColor;
+        ctx.lineWidth = ribbonHeight;
         ctx.stroke();
         ctx.restore();
     }

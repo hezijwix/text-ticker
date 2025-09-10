@@ -86,6 +86,11 @@ class TextTickerTool {
         this.ribbonWidthValue = document.getElementById('ribbonWidthValue');
         this.ribbonColorPicker = document.getElementById('ribbonColorPicker');
         
+        // Stroke controls
+        this.strokeWidthSlider = document.getElementById('strokeWidthSlider');
+        this.strokeWidthValue = document.getElementById('strokeWidthValue');
+        this.strokeColorPicker = document.getElementById('strokeColorPicker');
+        
         // Background controls
         this.backgroundColorPicker = document.getElementById('backgroundColorPicker');
         this.alphaBackgroundCheckbox = document.getElementById('alphaBackgroundCheckbox');
@@ -167,6 +172,10 @@ class TextTickerTool {
         this.boundsType = "round";  // "round", "sharp"
         this.ribbonWidth = 0.25;  // Proportional to font size
         this.ribbonColor = "#ff0000";
+        
+        // Stroke properties
+        this.strokeWidth = 0;  // Stroke width in pixels
+        this.strokeColor = "#000000";  // Stroke color
         
         // Animation properties
         this.animationMode = "linear";  // "linear" or "pulse"
@@ -621,6 +630,18 @@ class TextTickerTool {
         
         this.ribbonColorPicker.addEventListener('input', () => {
             this.ribbonColor = this.ribbonColorPicker.value;
+            this.renderText();
+        });
+        
+        // Stroke event listeners
+        this.strokeWidthSlider.addEventListener('input', () => {
+            this.strokeWidth = parseFloat(this.strokeWidthSlider.value);
+            this.strokeWidthValue.textContent = this.strokeWidth + 'px';
+            this.renderText();
+        });
+        
+        this.strokeColorPicker.addEventListener('input', () => {
+            this.strokeColor = this.strokeColorPicker.value;
             this.renderText();
         });
         
@@ -1226,6 +1247,14 @@ class TextTickerTool {
         }
         
         ctx.fill();
+        
+        // Draw stroke around the ribbon if stroke width > 0
+        if (this.strokeWidth > 0) {
+            ctx.strokeStyle = this.strokeColor;
+            ctx.lineWidth = this.strokeWidth;
+            ctx.stroke();
+        }
+        
         ctx.restore();
     }
     

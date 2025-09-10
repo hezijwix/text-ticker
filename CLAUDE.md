@@ -44,6 +44,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Application Core
 - **`index.html`**: UI structure with path mode controls and P5.js integration
 - **`design-system.md`**: **Comprehensive UI/UX design system - reference for all styling decisions**
+- **`CLAUDE.md`**: Project documentation for Claude Code development context
 
 ### JavaScript Modules (Composition Pattern)
 - **`js/TextTickerTool.js`**: Main orchestrator (~800 lines) - module coordination, UI state, P5.js management
@@ -57,10 +58,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **`css/controls.css`**: Form elements, interactive states
 - **`css/toggles.css`**: Custom toggles, radio buttons, checkboxes
 - **`css/modals.css`**: Export modal, help dialogs
-- **`css/style.css`**: Canvas integration, P5.js positioning
+- **`css/style.css`**: CSS module imports and canvas integration
 
-### Reference
+### Reference Documentation
 - **`legacy/script.js`**: Original monolithic implementation preserved for reference
+- **`docs/Canvas_Sizing_Documentation.md`**: Comprehensive canvas sizing and zoom implementation reference
+- **`animation-easing-research.md`**: Research on advanced animation easing techniques
+- **`ANIMATION_FEATURES.md`**: Animation system capabilities and future enhancement plans
+- **`README.md`**: Project overview and basic usage instructions
 
 ## Key Features
 
