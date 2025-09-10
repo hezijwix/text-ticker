@@ -1004,8 +1004,8 @@ class SplineMode {
         
         // Set stroke properties for spline ribbon
         ctx.lineWidth = ribbonHeight;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
+        ctx.lineCap = this.tool.boundsType === 'round' ? 'round' : 'square';
+        ctx.lineJoin = this.tool.boundsType === 'round' ? 'round' : 'miter';
         
         // Draw single continuous segment from startDistance to endDistance
         // Note: The caller handles word splitting for wrapped segments

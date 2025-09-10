@@ -83,9 +83,16 @@
                         <label for="ribbonModeSelect">Ribbon Mode:</label>
                         <select id="ribbonModeSelect" class="preset-select">
                             <option value="off">Off</option>
-                            <option value="character" selected>Character Borders</option>
-                            <option value="shapePath">Shape Path</option>
-                            <option value="wordsBound">Words Bound</option>
+                            <option value="character" selected>Character</option>
+                            <option value="wordsBound">Words</option>
+                            <option value="shapePath">Path</option>
+                        </select>
+                    </div>
+                    <div class="preset-control-row">
+                        <label for="boundsTypeSelect">Bounds Type:</label>
+                        <select id="boundsTypeSelect" class="preset-select">
+                            <option value="round" selected>Round</option>
+                            <option value="sharp">Sharp</option>
                         </select>
                     </div>
                     <div class="slider-control-row">
@@ -135,12 +142,12 @@
                     <div id="rectangleProperties" class="shape-properties-group" style="display: none;">
                         <div class="slider-control-row">
                             <label for="rectWidthSlider">Width:</label>
-                            <input type="range" id="rectWidthSlider" min="100" max="400" step="10" value="300" class="control-slider">
+                            <input type="range" id="rectWidthSlider" min="100" step="10" value="300" class="control-slider">
                             <span id="rectWidthValue">300</span>
                         </div>
                         <div class="slider-control-row">
                             <label for="rectHeightSlider">Height:</label>
-                            <input type="range" id="rectHeightSlider" min="80" max="300" step="10" value="200" class="control-slider">
+                            <input type="range" id="rectHeightSlider" min="80" step="10" value="200" class="control-slider">
                             <span id="rectHeightValue">200</span>
                         </div>
                         <div class="slider-control-row">

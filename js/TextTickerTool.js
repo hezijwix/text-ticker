@@ -81,6 +81,7 @@ class TextTickerTool {
         
         // Text Ribbon controls
         this.ribbonModeSelect = document.getElementById('ribbonModeSelect');
+        this.boundsTypeSelect = document.getElementById('boundsTypeSelect');
         this.ribbonWidthSlider = document.getElementById('ribbonWidthSlider');
         this.ribbonWidthValue = document.getElementById('ribbonWidthValue');
         this.ribbonColorPicker = document.getElementById('ribbonColorPicker');
@@ -163,6 +164,7 @@ class TextTickerTool {
         
         // Text Ribbon properties
         this.ribbonMode = "character";  // "off", "character", "shapePath", "wordsBound"
+        this.boundsType = "round";  // "round", "sharp"
         this.ribbonWidth = 0.25;  // Proportional to font size
         this.ribbonColor = "#ff0000";
         
@@ -246,6 +248,13 @@ class TextTickerTool {
         this.updateShapeControls(); // Initialize shape controls visibility
         this.updateAnimationModeControls(); // Initialize animation mode controls visibility
         this.updateSplinePointCount(); // Initialize spline point count
+        
+        // Initialize UI controls to match default values
+        this.boundsTypeSelect.value = this.boundsType;
+        
+        // Initialize rectangle maximums based on default canvas size
+        const defaultSize = this.getFrameSize();
+        this.updateRectangleMaximums(defaultSize.width, defaultSize.height);
         
         // Handle window resize
         window.addEventListener('resize', () => {
@@ -599,6 +608,11 @@ class TextTickerTool {
             this.renderText();
         });
         
+        this.boundsTypeSelect.addEventListener('change', () => {
+            this.boundsType = this.boundsTypeSelect.value;
+            this.renderText();
+        });
+        
         this.ribbonWidthSlider.addEventListener('input', () => {
             this.ribbonWidth = parseFloat(this.ribbonWidthSlider.value);
             this.ribbonWidthValue.textContent = this.ribbonWidth.toFixed(2) + 'x';
@@ -705,6 +719,41 @@ class TextTickerTool {
         // Resize P5.js canvas
         if (this.p5Instance) {
             this.p5Instance.resizeCanvas(clampedWidth, clampedHeight);
+            this.renderText();
+        }
+        
+        // Update rectangle maximums based on new canvas size
+        this.updateRectangleMaximums(clampedWidth, clampedHeight);
+    }
+    
+    // Update rectangle slider maximums based on canvas dimensions
+    updateRectangleMaximums(canvasWidth, canvasHeight) {
+        // Calculate maximums as 100% of canvas size for true edge frames
+        const maxWidth = Math.floor(canvasWidth);
+        const maxHeight = Math.floor(canvasHeight);
+        
+        // Update slider max attributes
+        this.rectWidthSlider.max = maxWidth;
+        this.rectHeightSlider.max = maxHeight;
+        
+        // Clamp existing values if they exceed new maximums
+        const currentWidth = parseInt(this.rectWidthSlider.value);
+        const currentHeight = parseInt(this.rectHeightSlider.value);
+        
+        if (currentWidth > maxWidth) {
+            this.rectWidthSlider.value = maxWidth;
+            this.shapeParameters.rectangle.width = maxWidth;
+            this.rectWidthValue.textContent = maxWidth;
+        }
+        
+        if (currentHeight > maxHeight) {
+            this.rectHeightSlider.value = maxHeight;
+            this.shapeParameters.rectangle.height = maxHeight;
+            this.rectHeightValue.textContent = maxHeight;
+        }
+        
+        // Re-render if values were clamped
+        if (currentWidth > maxWidth || currentHeight > maxHeight) {
             this.renderText();
         }
     }
@@ -950,8 +999,8 @@ class TextTickerTool {
         // Set stroke properties for shape outline
         ctx.strokeStyle = this.ribbonColor;
         ctx.lineWidth = strokeWidth;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
+        ctx.lineCap = this.boundsType === 'round' ? 'round' : 'square';
+        ctx.lineJoin = this.boundsType === 'round' ? 'round' : 'miter';
         ctx.fillStyle = 'transparent';
         
         // Draw path outline based on current path mode
@@ -1156,17 +1205,43 @@ class TextTickerTool {
         ctx.translate(x, y);
         ctx.rotate(angle);
         
-        // Draw sharp rectangle border behind character (no rounded corners)
         const borderPadding = borderWidth * 0.5;
         const rectWidth = charWidth + borderPadding * 2;
         const rectHeight = charHeight + borderPadding * 2;
         
-        // Always draw simple rectangle with sharp corners
         ctx.beginPath();
-        ctx.rect(-rectWidth/2, -rectHeight/2, rectWidth, rectHeight);
-        ctx.fill();
         
+        if (this.boundsType === "sharp") {
+            // Draw sharp rectangle border behind character (no rounded corners)
+            ctx.rect(-rectWidth/2, -rectHeight/2, rectWidth, rectHeight);
+        } else {
+            // Draw rounded rectangle border for round bounds
+            const cornerRadius = Math.min(rectWidth, rectHeight) * 0.15; // 15% of smallest dimension
+            if (typeof ctx.roundRect === 'function') {
+                ctx.roundRect(-rectWidth/2, -rectHeight/2, rectWidth, rectHeight, cornerRadius);
+            } else {
+                // Fallback for browsers without roundRect support
+                this.drawRoundedRect(ctx, -rectWidth/2, -rectHeight/2, rectWidth, rectHeight, cornerRadius);
+            }
+        }
+        
+        ctx.fill();
         ctx.restore();
+    }
+    
+    // Helper method for drawing rounded rectangles on browsers without native support
+    drawRoundedRect(ctx, x, y, width, height, radius) {
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + width - radius, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+        ctx.lineTo(x + width, y + height - radius);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        ctx.lineTo(x + radius, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
     }
 }
 

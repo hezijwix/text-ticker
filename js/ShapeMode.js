@@ -458,8 +458,8 @@ class ShapeMode {
         
         // Set stroke properties for curved ribbon
         ctx.lineWidth = ribbonHeight;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
+        ctx.lineCap = this.tool.boundsType === 'round' ? 'round' : 'square';
+        ctx.lineJoin = this.tool.boundsType === 'round' ? 'round' : 'miter';
         
         // Draw curved ribbon arc segment for this word
         ctx.beginPath();
@@ -480,8 +480,8 @@ class ShapeMode {
         
         // Set stroke properties for path ribbon
         ctx.lineWidth = ribbonHeight;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
+        ctx.lineCap = this.tool.boundsType === 'round' ? 'round' : 'square';
+        ctx.lineJoin = this.tool.boundsType === 'round' ? 'round' : 'miter';
         
         // Draw path segment along rectangle perimeter for this word
         ctx.beginPath();
