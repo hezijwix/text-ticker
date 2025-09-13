@@ -992,7 +992,7 @@ class SplineMode {
         if (this.tool.strokeWidth > 0) {
             drawSplinePath();
             ctx.strokeStyle = this.tool.strokeColor;
-            ctx.lineWidth = ctx.lineWidth + (this.tool.strokeWidth * 2);
+            ctx.lineWidth = this.tool.currentFontSize * this.tool.ribbonWidth + (this.tool.strokeWidth * 2);
             ctx.stroke();
         }
         

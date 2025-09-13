@@ -405,14 +405,16 @@ class TextTickerTool {
             // Mouse event handlers for spline editing
             p.mousePressed = () => {
                 if (self.currentPathMode === "spline") {
-                    self.splineMode.handleSplineMousePressed(p.mouseX, p.mouseY);
+                    const transformedCoords = self.getTransformedMouseCoordinates(p.mouseX, p.mouseY);
+                    self.splineMode.handleSplineMousePressed(transformedCoords.x, transformedCoords.y);
                 }
             };
             
             // Mouse drag handler for handle manipulation
             p.mouseDragged = () => {
                 if (self.currentPathMode === "spline") {
-                    self.splineMode.handleSplineMouseDrag(p.mouseX, p.mouseY);
+                    const transformedCoords = self.getTransformedMouseCoordinates(p.mouseX, p.mouseY);
+                    self.splineMode.handleSplineMouseDrag(transformedCoords.x, transformedCoords.y);
                 }
             };
             
@@ -880,6 +882,37 @@ class TextTickerTool {
         
         // Update combined zoom
         this.updateCombinedZoom();
+    }
+    
+    // Get canvas coordinates accounting for zoom transformation
+    getTransformedMouseCoordinates(mouseX, mouseY) {
+        // Get the frame container's bounding rect
+        const rect = this.frameContainer.getBoundingClientRect();
+        
+        // Calculate the visual size after zoom transform
+        const actualFrameWidth = rect.width / this.currentZoom;
+        const actualFrameHeight = rect.height / this.currentZoom;
+        const visualWidth = actualFrameWidth * this.currentZoom;
+        const visualHeight = actualFrameHeight * this.currentZoom;
+        
+        // Calculate zoom centering offsets
+        const zoomOffsetX = (rect.width - visualWidth) / 2;
+        const zoomOffsetY = (rect.height - visualHeight) / 2;
+        
+        // P5.js mouseX/mouseY are relative to the canvas, but we need to account for zoom transform
+        // Convert P5.js coordinates to frame container coordinates, then apply zoom correction
+        const relativeX = mouseX;
+        const relativeY = mouseY;
+        
+        // Adjust for zoom transform centering and scale
+        const visualX = relativeX - zoomOffsetX;
+        const visualY = relativeY - zoomOffsetY;
+        
+        // Convert back to actual canvas coordinates by dividing by zoom
+        const canvasX = visualX / this.currentZoom;
+        const canvasY = visualY / this.currentZoom;
+        
+        return { x: canvasX, y: canvasY };
     }
     
     // Main rendering pipeline

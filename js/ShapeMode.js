@@ -396,20 +396,21 @@ class ShapeMode {
             const wordWidth = ctx.measureText(word.text).width;
             
             if (startPathCycle !== endPathCycle) {
-                // Word wraps around - split into two separate segments
+                // Word wraps around - render as unified path to maintain stroke continuity
                 
                 // Segment 1: From word start to end of perimeter
                 const segment1Start = rawStartDistance % perimeter;
-                const segment1End = perimeter; // End of perimeter
-                if (segment1End > segment1Start) {
-                    this.drawSingleWordRibbonOnRectangle(ctx, word, segment1Start, segment1End, width, height, cornerRadius, wordWidth, ribbonHeight, borderPadding, perimeter, pathCalculator);
-                }
+                const segment1End = perimeter;
                 
-                // Segment 2: From start of perimeter to word end
-                const segment2Start = 0; // Start of perimeter
+                // Segment 2: From start of perimeter to word end  
+                const segment2Start = 0;
                 const segment2End = rawEndDistance % perimeter;
-                if (segment2End > segment2Start) {
-                    this.drawSingleWordRibbonOnRectangle(ctx, word, segment2Start, segment2End, width, height, cornerRadius, wordWidth, ribbonHeight, borderPadding, perimeter, pathCalculator);
+                
+                // Render both segments as unified path for stroke continuity
+                if ((segment1End > segment1Start) || (segment2End > segment2Start)) {
+                    this.drawUnifiedWordRibbonOnRectangle(ctx, word, 
+                        [{start: segment1Start, end: segment1End}, {start: segment2Start, end: segment2End}], 
+                        width, height, cornerRadius, wordWidth, ribbonHeight, borderPadding, perimeter, pathCalculator);
                 }
             } else {
                 // Normal case - word doesn't wrap around, safe to render as single segment
@@ -430,7 +431,7 @@ class ShapeMode {
             ctx.beginPath();
             ctx.arc(0, 0, radius, 0, 2 * Math.PI);
             ctx.strokeStyle = this.tool.strokeColor;
-            ctx.lineWidth = ctx.lineWidth + (this.tool.strokeWidth * 2);
+            ctx.lineWidth = this.tool.currentFontSize * this.tool.ribbonWidth + (this.tool.strokeWidth * 2);
             ctx.stroke();
         }
         
@@ -457,7 +458,7 @@ class ShapeMode {
                 ctx.rect(-width/2, -height/2, width, height);
             }
             ctx.strokeStyle = this.tool.strokeColor;
-            ctx.lineWidth = ctx.lineWidth + (this.tool.strokeWidth * 2);
+            ctx.lineWidth = this.tool.currentFontSize * this.tool.ribbonWidth + (this.tool.strokeWidth * 2);
             ctx.stroke();
         }
         
@@ -555,6 +556,87 @@ class ShapeMode {
         ctx.strokeStyle = this.tool.ribbonColor;
         ctx.lineWidth = ribbonHeight;
         ctx.stroke();
+        ctx.restore();
+    }
+    
+    // Draw unified word ribbon segments for wrapped words to maintain stroke continuity
+    drawUnifiedWordRibbonOnRectangle(ctx, word, segments, width, height, cornerRadius, wordWidth, ribbonHeight, borderPadding, perimeter, pathCalculator) {
+        ctx.save();
+        
+        // Set common stroke properties
+        ctx.lineCap = this.tool.boundsType === 'round' ? 'round' : 'square';
+        ctx.lineJoin = this.tool.boundsType === 'round' ? 'round' : 'miter';
+        
+        // Collect all valid path points for all segments
+        const allPathPoints = [];
+        const allStrokePathPoints = [];
+        
+        for (const segment of segments) {
+            // Skip empty segments
+            if (segment.end <= segment.start) continue;
+            
+            const wordDistance = segment.end - segment.start;
+            const pathResolution = Math.max(10, Math.ceil(wordDistance / 5)); // Sample every ~5 units or at least 10 points
+            
+            const segmentPoints = [];
+            for (let i = 0; i <= pathResolution; i++) {
+                const progress = i / pathResolution;
+                const currentDistance = (segment.start + wordDistance * progress) % perimeter;
+                const point = pathCalculator(currentDistance, width, height, cornerRadius);
+                segmentPoints.push(point);
+            }
+            
+            // Add segment points to collection
+            if (segmentPoints.length > 0) {
+                allPathPoints.push(segmentPoints);
+                allStrokePathPoints.push(segmentPoints);
+            }
+        }
+        
+        // Skip rendering if no valid segments
+        if (allPathPoints.length === 0) {
+            ctx.restore();
+            return;
+        }
+        
+        // Draw stroke outline first (if enabled) so it appears behind the ribbon
+        if (this.tool.strokeWidth > 0) {
+            ctx.beginPath();
+            
+            // Draw each segment as separate sub-paths within the same beginPath
+            for (const segmentPoints of allStrokePathPoints) {
+                segmentPoints.forEach((point, i) => {
+                    if (i === 0) {
+                        ctx.moveTo(point.x, point.y);
+                    } else {
+                        ctx.lineTo(point.x, point.y);
+                    }
+                });
+            }
+            
+            ctx.strokeStyle = this.tool.strokeColor;
+            ctx.lineWidth = ribbonHeight + (this.tool.strokeWidth * 2);
+            ctx.stroke();
+        }
+        
+        // Draw main ribbon path on top using unified path for continuity
+        ctx.beginPath();
+        
+        // Draw each segment as separate sub-paths within the same beginPath
+        for (const segmentPoints of allPathPoints) {
+            segmentPoints.forEach((point, i) => {
+                if (i === 0) {
+                    ctx.moveTo(point.x, point.y);
+                } else {
+                    ctx.lineTo(point.x, point.y);
+                }
+            });
+        }
+        
+        ctx.strokeStyle = this.tool.ribbonColor;
+        ctx.lineWidth = ribbonHeight;
+        ctx.stroke();
+        
         ctx.restore();
     }
 }

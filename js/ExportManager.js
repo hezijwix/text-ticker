@@ -212,10 +212,22 @@ class ExportManager {
             
             // Handle video format conversion and download
             const selectedFormat = this.tool.preferredExportFormat;
-            const isMP4 = selectedFormat.includes('mp4');
+            const isMP4 = selectedFormat.includes('mp4') || selectedFormat === 'auto';
             
             if (isMP4 && !this.ffmpegLoaded) {
-                // Fallback to WebM if FFmpeg not loaded
+                // Try to load FFmpeg for auto mode, fallback to WebM if failed
+                if (selectedFormat === 'auto' && this.ffmpeg) {
+                    try {
+                        this.tool.exportBtn.textContent = 'Loading MP4 converter...';
+                        await this.ffmpeg.load();
+                        this.ffmpegLoaded = true;
+                        await this.convertToMP4(videoBlob);
+                        return;
+                    } catch (error) {
+                        console.warn('Auto mode: FFmpeg failed, falling back to WebM:', error);
+                    }
+                }
+                // Fallback to WebM if FFmpeg not loaded or failed
                 this.downloadVideo(videoBlob, 'webm');
             } else if (isMP4) {
                 await this.convertToMP4(videoBlob);
@@ -288,14 +300,17 @@ class ExportManager {
     // Initialize FFmpeg for MP4 conversion
     async initFFmpeg() {
         try {
-            // Check if FFmpeg is available
-            if (typeof FFmpeg !== 'undefined') {
+            // Check if FFmpeg is available (v0.10.x API)
+            if (typeof FFmpeg !== 'undefined' && FFmpeg.createFFmpeg) {
                 this.ffmpeg = FFmpeg.createFFmpeg({
                     log: false,
                     corePath: 'https://unpkg.com/@ffmpeg/core@0.10.0/dist/ffmpeg-core.js'
                 });
                 // Don't load immediately to save resources
                 this.ffmpegLoaded = false;
+                console.log('FFmpeg available, will load on demand for MP4 conversion');
+            } else {
+                console.warn('FFmpeg not available, will fallback to WebM');
             }
         } catch (error) {
             console.warn('FFmpeg initialization failed:', error);
@@ -312,14 +327,14 @@ class ExportManager {
         
         try {
             if (!this.ffmpegLoaded) {
-                this.tool.exportBtn.textContent = 'Loading converter...';
+                this.tool.exportBtn.textContent = 'Loading MP4 converter...';
                 await this.ffmpeg.load();
                 this.ffmpegLoaded = true;
             }
             
             this.tool.exportBtn.textContent = 'Converting to MP4... (0%)';
             
-            // Write input file
+            // Write input file (v0.10.x API)
             const webmData = new Uint8Array(await webmBlob.arrayBuffer());
             await this.ffmpeg.FS('writeFile', 'input.webm', webmData);
             
@@ -336,7 +351,7 @@ class ExportManager {
             
             this.tool.exportBtn.textContent = 'Converting to MP4... (75%)';
             
-            // Read output file
+            // Read output file (v0.10.x API)
             const mp4Data = this.ffmpeg.FS('readFile', 'output.mp4');
             const mp4Blob = new Blob([mp4Data.buffer], { type: 'video/mp4' });
             
@@ -349,7 +364,7 @@ class ExportManager {
             
         } catch (error) {
             console.error('MP4 conversion failed:', error);
-            alert('MP4 conversion failed. Downloading as WebM instead.');
+            console.warn('Auto mode: MP4 conversion failed, falling back to WebM');
             this.downloadVideo(webmBlob, 'webm');
         }
     }
