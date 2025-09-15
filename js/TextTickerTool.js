@@ -404,6 +404,11 @@ class TextTickerTool {
             
             // Mouse event handlers for spline editing
             p.mousePressed = () => {
+                // Prevent canvas interactions when any modal is open
+                if (self.isModalOpen()) {
+                    return;
+                }
+                
                 if (self.currentPathMode === "spline") {
                     const transformedCoords = self.getTransformedMouseCoordinates(p.mouseX, p.mouseY);
                     self.splineMode.handleSplineMousePressed(transformedCoords.x, transformedCoords.y);
@@ -412,6 +417,11 @@ class TextTickerTool {
             
             // Mouse drag handler for handle manipulation
             p.mouseDragged = () => {
+                // Prevent canvas interactions when any modal is open
+                if (self.isModalOpen()) {
+                    return;
+                }
+                
                 if (self.currentPathMode === "spline") {
                     const transformedCoords = self.getTransformedMouseCoordinates(p.mouseX, p.mouseY);
                     self.splineMode.handleSplineMouseDrag(transformedCoords.x, transformedCoords.y);
@@ -420,6 +430,11 @@ class TextTickerTool {
             
             // Mouse release handler to stop dragging
             p.mouseReleased = () => {
+                // Prevent canvas interactions when any modal is open
+                if (self.isModalOpen()) {
+                    return;
+                }
+                
                 if (self.currentPathMode === "spline") {
                     self.splineMode.stopHandleDrag();
                 }
@@ -882,6 +897,18 @@ class TextTickerTool {
         
         // Update combined zoom
         this.updateCombinedZoom();
+    }
+    
+    // Check if any modal is currently open
+    isModalOpen() {
+        // Check export modal
+        const exportModalVisible = this.exportModal.style.display === 'flex' || 
+                                  this.exportModal.classList.contains('show');
+        
+        // Check help modal
+        const helpModalVisible = this.helpModal.style.display === 'flex';
+        
+        return exportModalVisible || helpModalVisible;
     }
     
     // Get canvas coordinates accounting for zoom transformation
