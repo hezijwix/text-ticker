@@ -103,9 +103,10 @@ class ExportManager {
             const originalAnimationSpeed = this.tool.animationSpeed;
             const originalAnimationOffset = this.tool.animationOffset;
             
-            // Calculate animation parameters for smooth progression
-            const animationRange = 360; // Full rotation
-            const degreesPerFrame = animationRange / totalFrames;
+            // Calculate animation parameters based on actual animation speed
+            // Preview uses: animationSpeed * 60 degrees/second
+            const totalRotation = this.tool.animationSpeed * 60 * durationSeconds;
+            const degreesPerFrame = totalRotation / totalFrames;
             
             for (let frame = 0; frame < totalFrames; frame++) {
                 // Update animation offset for this frame
@@ -182,9 +183,10 @@ class ExportManager {
             const recordedFrames = [];
             const originalAnimationOffset = this.tool.animationOffset;
             
-            // Calculate animation parameters
-            const animationRange = 360;
-            const degreesPerFrame = animationRange / totalFrames;
+            // Calculate animation parameters based on actual animation speed
+            // Preview uses: animationSpeed * 60 degrees/second
+            const totalRotation = this.tool.animationSpeed * 60 * durationSeconds;
+            const degreesPerFrame = totalRotation / totalFrames;
             
             for (let frame = 0; frame < totalFrames; frame++) {
                 // Update animation offset for this frame
@@ -227,7 +229,7 @@ class ExportManager {
                         console.warn('Auto mode: FFmpeg failed, falling back to WebM:', error);
                     }
                 }
-                // Fallback to WebM if FFmpeg not loaded or failed
+                // Fallback to WebM if FFmpeg not loaded or failed - ensure WebM format
                 this.downloadVideo(videoBlob, 'webm');
             } else if (isMP4) {
                 await this.convertToMP4(videoBlob);
