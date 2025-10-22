@@ -1,0 +1,169 @@
+12 OCTOBER, 2025
+
+TEXT TICKER TOOL
+
+[HERO IMAGE: Full-width screenshot showing main interface with control panel on left, canvas with animated text on circular/curved path, dark background, approximately 1000x600px]
+
+Text Ticker Tool is a browser-based typography application that enables designers to create sophisticated animated text along both geometric shapes and custom vector paths. It generates dynamic text animations through precise path control—circles, rectangles, or freeform splines—with real-time variable font rendering, smooth animation controls, and professional export capabilities. This approach allows designers to explore kinetic typography and motion design without relying on specialized animation software.
+
+[TRY THE TEXT TICKER TOOL NOW →]  [Send Us Feedback]
+
+KEY FEATURES
+
+Path-based typography
+Text follows geometric shapes or custom vector splines
+
+Variable font support
+Real-time font weight transitions with live preview
+
+Custom spline editing
+Interactive point-and-click curve creation
+
+Export capabilities
+PNG, MP4 video, and PNG sequences
+
+○ INFORMATION
+
+Modes of Operation
+Text Ticker Tool includes two main path systems: Shape Mode and Spline Mode.
+
+Shape Mode
+
+[IMAGE: Text arranged in perfect circle with "Shape Mode" selected, showing Circle Radius and Font Weight controls, approximately 900x550px]
+
+Text follows parametric geometric paths with precise mathematical control. The system supports circles (adjustable radius) and rectangles (width, height, corner radius). Characters are distributed evenly along the path regardless of curvature using arc-length parameterization, maintaining consistent spacing and proper rotation. This mode is ideal for creating circular badges, curved headlines, geometric text compositions, and architectural typography.
+
+Spline Mode
+
+[IMAGE: Text following custom organic curve with visible control points, "Spline Mode" selected, showing interpolation controls, approximately 900x550px]
+
+Text follows custom vector curves created through interactive point-and-click editing. The system supports both linear interpolation and Catmull-Rom smooth curves with arc-length parameterization for consistent character distribution along any curve complexity. This mode enables organic flowing paths, hand-drawn aesthetics, complex text arrangements, and unlimited creative freedom for experimental typography.
+
+Principle of Arc-Length Parameterization
+
+Rather than spacing characters by parametric intervals, Text Ticker Tool uses arc-length parameterization to ensure uniform visual distribution along any path type. This mathematical approach calculates the actual distance traveled along curves, ensuring consistent spacing regardless of path complexity—tight curves, sharp corners, or varying geometries. The result is professional typography where characters maintain perfect visual rhythm through any path configuration.
+
+Core Controls
+
+Font Weight
+
+Real-time variable font weight transitions from 400 to 800, enabling dynamic typographic expression.
+
+[SPLIT IMAGE: Left side shows text at weight 400 (light), right side shows same text at weight 800 (bold), both on circular paths, approximately 450x350px each]
+
+Character Spacing
+
+Adjusts the distance between characters along the path, allowing compressed or expanded typography.
+
+[SPLIT IMAGE: Left side shows tight spacing (0.95), right side shows wide spacing (1.2), same path size, approximately 450x350px each]
+
+Text Scale
+
+Controls the size of individual characters while maintaining path geometry and spacing relationships.
+
+[SPLIT IMAGE: Left side shows scale 0.5 (small), right side shows scale 1.5 (large), same path size, approximately 450x350px each]
+
+Animation Offset
+
+Creates smooth character-by-character animation along paths, producing flowing ticker effects.
+
+[THREE-FRAME SEQUENCE: Frame 1 at offset 0, Frame 2 at offset 0.33, Frame 3 at offset 0.67, with motion arrows, approximately 300x350px each]
+
+[TRY THE TEXT TICKER TOOL NOW →]  [Send Us Feedback]
+
+Ribbon Visualization Modes
+
+Off
+
+Clean text without decorative elements, optimal for final output and export.
+
+[IMAGE: Clean text on path with no decorations, approximately 600x400px]
+
+Character Borders
+
+Individual character outlines for typography analysis and layout refinement.
+
+[IMAGE: Text with visible stroke outlines around each character, approximately 600x400px]
+
+Shape Path
+
+Path visualization showing the underlying geometric structure for precise control.
+
+[IMAGE: Text with underlying path curve visible as thin line, approximately 600x400px]
+
+Words Bound
+
+Word-level ribbon segments creating visual groupings and enhanced readability.
+
+[IMAGE: Text with ribbon segments connecting letters within words, approximately 600x400px]
+
+Path Geometry
+
+Circle Path
+
+Parametric circular paths with adjustable radius, ideal for badges, seals, and radial compositions.
+
+[IMAGE: Text in perfect circle with radius control slider, center point and dimension line visible, approximately 700x500px]
+
+Rectangle Path
+
+Rectangular paths with adjustable dimensions and corner radius, perfect for frames and borders.
+
+[IMAGE: Text flowing around rounded rectangle with width/height/corner radius controls, approximately 700x500px]
+
+Custom Spline Path
+
+Freeform vector curves with interactive point editing, enabling unlimited creative possibilities.
+
+[IMAGE: Text following S-curve with visible control points as dots, Catmull-Rom interpolation indicator, approximately 700x500px]
+
+[TRY THE TEXT TICKER TOOL NOW →]  [Send Us Feedback]
+
+Animation System
+
+The animation system provides smooth, organic text motion with precise control over timing and flow.
+
+Frame-based rendering
+60fps animation with consistent playback across all path types
+
+Offset control
+Adjustable animation phase for perfect timing and synchronization
+
+Loop compatibility
+Seamless loops for continuous playback and GIF/video export
+
+[IMAGE: Timeline or sine wave graph showing animation offset progression with playback controls, approximately 1000x400px]
+
+Combining these parameters enables sophisticated effects such as flowing ticker animations, synchronized text reveals, and kinetic typography sequences.
+
+Additional Features
+
+Zoom and Pan Controls
+
+Interactive canvas navigation with mouse wheel zoom and drag panning for detailed editing work.
+
+Visual Editing Guides
+
+Optional control point visualization and path guides (automatically hidden during export).
+
+Export Formats
+
+PNG Sequence
+Frame-by-frame export for compositing
+
+PNG
+Single frame high-resolution export
+
+MP4
+Video animation export
+
+Technical Notes
+
+• Built on P5.js with hybrid Canvas 2D rendering for variable font support
+• Real-time parameter preview with conditional rendering optimization
+• Cross-browser compatibility (Chrome, Firefox, Safari, Edge)
+• Runs directly in the browser — no installation required
+• Arc-length parameterization for precise character spacing
+• Modular composition architecture for extensibility
+
+[TRY THE TEXT TICKER TOOL NOW →]  [Send Us Feedback]
