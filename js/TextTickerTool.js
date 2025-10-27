@@ -700,7 +700,16 @@ class TextTickerTool {
         this.closeExportModal.addEventListener('click', () => this.exportManager.hideExportModal());
         this.cancelExport.addEventListener('click', () => this.exportManager.hideExportModal());
         this.startExport.addEventListener('click', () => this.exportManager.handleModalExport());
-        
+
+        // Export format change handler - update button text
+        this.exportFormat.addEventListener('change', (e) => {
+            if (e.target.value === 'iframe') {
+                this.startExport.textContent = 'Copy Code';
+            } else {
+                this.startExport.textContent = 'Start Export';
+            }
+        });
+
         // Help modal
         this.helpIcon.addEventListener('click', () => this.exportManager.showHelpModal());
         this.closeHelpModal.addEventListener('click', () => this.exportManager.hideHelpModal());
